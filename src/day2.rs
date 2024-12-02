@@ -128,15 +128,19 @@ pub fn part2(input: &str) -> u32 {
             while lt_s < lt_e && ctrl != b'\n' {
                 let (n, c) = read(&mut input);
                 let new_diff = n - prev;
-                let rdiff = n - prevprev;
 
-                if !lt_ppv {
-                    lt_e = lt_e.min(if (1..4).contains(&rdiff) { i } else { i - 1 });
-                }
-
+                let old_lt_ppv = lt_ppv;
                 lt_ppv = (1..4).contains(&new_diff);
-                if !lt_ppv {
-                    lt_s = lt_s.max(if (1..4).contains(&rdiff) { i - 1 } else { i });
+
+                if !old_lt_ppv || !lt_ppv {
+                    let rdiff = n - prevprev;
+                    let r_ok = (1..4).contains(&rdiff);
+                    if !old_lt_ppv {
+                        lt_e = lt_e.min(if r_ok { i } else { i - 1 });
+                    }
+                    if !lt_ppv {
+                        lt_s = lt_s.max(if r_ok { i - 1 } else { i });
+                    }
                 }
 
                 (prevprev, prev, ctrl) = (prev, n, c);
@@ -146,15 +150,19 @@ pub fn part2(input: &str) -> u32 {
             while gt_s < gt_e && ctrl != b'\n' {
                 let (n, c) = read(&mut input);
                 let new_diff = n - prev;
-                let rdiff = n - prevprev;
 
-                if !gt_ppv {
-                    gt_e = gt_e.min(if (-3..0).contains(&rdiff) { i } else { i - 1 });
-                }
-
+                let old_gt_ppv = gt_ppv;
                 gt_ppv = (-3..0).contains(&new_diff);
-                if !gt_ppv {
-                    gt_s = gt_s.max(if (-3..0).contains(&rdiff) { i - 1 } else { i });
+
+                if !old_gt_ppv || !gt_ppv {
+                    let rdiff = n - prevprev;
+                    let r_ok = (-3..0).contains(&rdiff);
+                    if !old_gt_ppv {
+                        gt_e = gt_e.min(if r_ok { i } else { i - 1 });
+                    }
+                    if !gt_ppv {
+                        gt_s = gt_s.max(if r_ok { i - 1 } else { i });
+                    }
                 }
 
                 (prevprev, prev, ctrl) = (prev, n, c);
