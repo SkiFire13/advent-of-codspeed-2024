@@ -30,7 +30,7 @@ fn read_u64(s: &[u8]) -> u64 {
 }
 
 pub fn run(input: &str) -> i64 {
-    part1(input) as i64
+    part2(input) as i64
 }
 
 pub fn part1(input: &str) -> u32 {
@@ -41,8 +41,10 @@ pub fn part1(input: &str) -> u32 {
         let l = parse5top(read_u64(&line[..8]));
         let r = parse5bottom(read_u64(&line[5..13]));
 
-        left[i] = l;
-        right[i] = r;
+        unsafe {
+            *left.get_unchecked_mut(i) = l;
+            *right.get_unchecked_mut(i) = r;
+        }
     }
 
     left.sort_unstable();
@@ -58,17 +60,21 @@ pub fn part2(input: &str) -> u32 {
     let mut tot = 0;
 
     for line in input.as_bytes().chunks_exact(14) {
-        let l = parse5top(read_u64(&line[..8]));
-        if counts[l as usize] != u16::MAX {
-            tot += l * counts[l as usize] as u32;
-            counts[l as usize] = u16::MAX;
-        }
+        unsafe {
+            let l = parse5top(read_u64(&line[..8]));
+            let p = counts.get_unchecked_mut(l as usize);
+            if *p != u16::MAX {
+                tot += l * *p as u32;
+                *p = u16::MAX;
+            }
 
-        let r = parse5bottom(read_u64(&line[5..13]));
-        if counts[r as usize] == u16::MAX {
-            tot += r;
-        } else {
-            counts[r as usize] += 1;
+            let r = parse5bottom(read_u64(&line[5..13]));
+            let p = counts.get_unchecked_mut(r as usize);
+            if *p == u16::MAX {
+                tot += r;
+            } else {
+                *p += 1;
+            }
         }
     }
     tot
