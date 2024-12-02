@@ -56,21 +56,21 @@ pub fn part1(input: &str) -> u32 {
 }
 
 pub fn part2(input: &str) -> u32 {
-    let mut counts = [0u16; 100_000];
+    let mut counts = [0u8; 100_000];
     let mut tot = 0;
 
     for line in input.as_bytes().chunks_exact(14) {
         unsafe {
             let l = parse5top(read_u64(&line[..8]));
             let p = counts.get_unchecked_mut(l as usize);
-            if *p != u16::MAX {
+            if *p != u8::MAX {
                 tot += l * *p as u32;
-                *p = u16::MAX;
+                *p = u8::MAX;
             }
 
             let r = parse5bottom(read_u64(&line[5..13]));
             let p = counts.get_unchecked_mut(r as usize);
-            if *p == u16::MAX {
+            if *p == u8::MAX {
                 tot += r;
             } else {
                 *p += 1;
