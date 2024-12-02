@@ -1,5 +1,5 @@
 [package]
-name = "aoc"
+name = "advent-of-codspeed-2024"
 version = "0.1.0"
 authors = ["Giacomo Stevanato <giaco.stevanato@gmail.com>"]
 edition = "2021"

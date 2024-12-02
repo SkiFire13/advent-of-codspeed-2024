@@ -9,7 +9,7 @@ fn bench<D: std::fmt::Display>(f: impl FnOnce() -> D) {
 
 macro_rules! run {
     ($day:ident, $part:ident) => {
-        aoc::$day::$part(include_str!(concat!(
+        advent_of_codspeed_2024::$day::$part(include_str!(concat!(
             "../input/2024/",
             stringify!($day),
             ".txt"
