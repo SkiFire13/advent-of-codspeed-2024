@@ -1,87 +1,75 @@
-#[aoc(day1, part1, Bytes)]
-pub fn part1_bytes(input: &[u8]) -> i32 {
-    input.iter().fold(0, |sum, c| match c {
-        b'(' => sum + 1,
-        b')' => sum - 1,
-        _ => unreachable!(),
-    })
+#[inline(always)]
+fn parse8(n: u64) -> u32 {
+    use std::num::Wrapping as W;
+
+    let mut n = W(n);
+    let mask = W(0xFF | (0xFF << 32));
+    let mul1 = W(100 + (1000000 << 32));
+    let mul2 = W(1 + (10000 << 32));
+
+    n -= W(u64::from_ne_bytes([b'0'; 8]));
+    n = (n * W(10)) + (n >> 8);
+    n = (((n & mask) * mul1) + (((n >> 16) & mask) * mul2)) >> 32;
+
+    n.0 as u32
 }
 
-#[aoc(day1, part1, Chars)]
-pub fn part1_chars(input: &str) -> i32 {
-    input.chars().fold(0, |sum, c| match c {
-        '(' => sum + 1,
-        ')' => sum - 1,
-        _ => unreachable!(),
-    })
+#[inline(always)]
+fn parse5top(n: u64) -> u32 {
+    parse8((n << 24) | 0x0000000000303030)
 }
 
-#[aoc(day1, part2)]
-pub fn part2(input: &str) -> usize {
-    let mut sum: u32 = 0;
+#[inline(always)]
+fn parse5bottom(n: u64) -> u32 {
+    parse8((n & 0xFFFFFFFFFF000000) | 0x0000000000303030)
+}
 
-    for (i, c) in input.as_bytes().iter().enumerate() {
-        match c {
-            b'(' => sum += 1,
-            b')' => if let Some(s) = sum.checked_sub(1) {
-                sum = s;
-            } else {
-                return i + 1;
-            },
-            _ => unreachable!(),
+#[inline(always)]
+fn read_u64(s: &[u8]) -> u64 {
+    u64::from_ne_bytes(s.try_into().unwrap())
+}
+
+pub fn run(input: &str) -> i64 {
+    part1(input) as i64
+}
+
+pub fn part1(input: &str) -> u32 {
+    let mut left = [0; 1000];
+    let mut right = [0; 1000];
+
+    for (i, line) in input.as_bytes().chunks_exact(14).enumerate() {
+        let l = parse5top(read_u64(&line[..8]));
+        let r = parse5bottom(read_u64(&line[5..13]));
+
+        left[i] = l;
+        right[i] = r;
+    }
+
+    left.sort_unstable();
+    right.sort_unstable();
+
+    std::iter::zip(&left, &right)
+        .map(|(&l, &r)| u32::abs_diff(l, r))
+        .sum()
+}
+
+pub fn part2(input: &str) -> u32 {
+    let mut counts = [0u16; 100_000];
+    let mut tot = 0;
+
+    for line in input.as_bytes().chunks_exact(14) {
+        let l = parse5top(read_u64(&line[..8]));
+        if counts[l as usize] != u16::MAX {
+            tot += l * counts[l as usize] as u32;
+            counts[l as usize] = u16::MAX;
+        }
+
+        let r = parse5bottom(read_u64(&line[5..13]));
+        if counts[r as usize] == u16::MAX {
+            tot += r;
+        } else {
+            counts[r as usize] += 1;
         }
     }
-
-    unreachable!()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{part1_chars as part1, part2};
-
-    // (()) and ()() both result in floor 0.
-    #[test]
-    fn sample1() {
-        assert_eq!(part1("(())"), 0);
-        assert_eq!(part1("()()"), 0);
-    }
-
-    // ((( and (()(()( both result in floor 3.
-    #[test]
-    fn sample2() {
-        assert_eq!(part1("((("), 3);
-        assert_eq!(part1("(()(()("), 3);
-    }
-
-    // ))((((( also results in floor 3.
-    #[test]
-    fn sample3() {
-        assert_eq!(part1("))((((("), 3);
-    }
-
-    // ()) and ))( both result in floor -1 (the first basement level).
-    #[test]
-    fn sample4() {
-        assert_eq!(part1("())"), -1);
-        assert_eq!(part1("))("), -1);
-    }
-
-    // ))) and )())()) both result in floor -3.
-    #[test]
-    fn sample5() {
-        assert_eq!(part1(")))"), -3);
-        assert_eq!(part1(")())())"), -3);
-    }
-
-    // ) causes him to enter the basement at character position 1.
-    #[test]
-    fn sample6() {
-        assert_eq!(part2(")"), 1);
-    }
-
-    // ()()) causes him to enter the basement at character position 5.
-    #[test]
-    fn sample7() {
-        assert_eq!(part2("()())"), 5);
-    }
+    tot
 }

@@ -1,7 +1,23 @@
-extern crate advent_of_code_2015;
-extern crate aoc_runner_derive;
-extern crate aoc_runner;
+#![feature(portable_simd)]
 
-use aoc_runner_derive::aoc_main;
+fn bench<D: std::fmt::Display>(f: impl FnOnce() -> D) {
+    let now = std::time::Instant::now();
+    let sol = f();
+    println!("Took: {:?}", now.elapsed());
+    println!("Solution: {sol}");
+}
 
-aoc_main! { lib = advent_of_code_2015 }
+macro_rules! run {
+    ($day:ident, $part:ident) => {
+        aoc::$day::$part(include_str!(concat!(
+            "../input/2024/",
+            stringify!($day),
+            ".txt"
+        )))
+    };
+}
+
+fn main() {
+    bench(|| run!(day1, part1));
+    bench(|| run!(day1, part2));
+}
