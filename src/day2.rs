@@ -89,98 +89,129 @@ pub fn part2(input: &str) -> u32 {
 
             let diff = n2 - n1;
 
-            let mut i = 2;
             let mut prevprev = n1;
             let mut prev = n2;
             let mut ctrl = c2;
-            let (mut lt_s, mut gt_s) = (0, 0);
-            let (mut lt_e, mut gt_e) = (u32::MAX, u32::MAX);
-            let mut lt_ppv = (1..4).contains(&diff);
-            let mut gt_ppv = (-3..0).contains(&diff);
 
-            while lt_s < lt_e && gt_s < gt_e && ctrl != b'\n' {
+            static STATE_MAP: [[u8; 4]; 4] =
+                [[2, 1, 0, 0], [4, 3, 3, 3], [4, 3, 4, 3], [4, 4, 3, 3]];
+
+            let mut lt_st = if (1..4).contains(&diff) { 0 } else { 1 };
+            let mut gt_st = if (-3..0).contains(&diff) { 0 } else { 1 };
+
+            while lt_st != 4 && gt_st != 4 && ctrl != b'\n' {
                 let (n, c) = read(&mut input);
-                let new_diff = n - prev;
-                let rdiff = n - prevprev;
+                let p_diff = n - prev;
+                let pp_diff = n - prevprev;
 
-                if !lt_ppv {
-                    lt_e = lt_e.min(if (1..4).contains(&rdiff) { i } else { i - 1 });
-                }
+                let lt_idx =
+                    2 * ((1..4).contains(&p_diff) as usize) + (1..4).contains(&pp_diff) as usize;
+                let gt_idx =
+                    2 * ((-3..0).contains(&p_diff) as usize) + (-3..0).contains(&pp_diff) as usize;
 
-                if !gt_ppv {
-                    gt_e = gt_e.min(if (-3..0).contains(&rdiff) { i } else { i - 1 });
-                }
-
-                lt_ppv = (1..4).contains(&new_diff);
-                if !lt_ppv {
-                    lt_s = lt_s.max(if (1..4).contains(&rdiff) { i - 1 } else { i });
-                }
-
-                gt_ppv = (-3..0).contains(&new_diff);
-                if !gt_ppv {
-                    gt_s = gt_s.max(if (-3..0).contains(&rdiff) { i - 1 } else { i });
-                }
+                lt_st = *STATE_MAP
+                    .get_unchecked(lt_st as usize)
+                    .get_unchecked(lt_idx);
+                gt_st = *STATE_MAP
+                    .get_unchecked(gt_st as usize)
+                    .get_unchecked(gt_idx);
 
                 (prevprev, prev, ctrl) = (prev, n, c);
-                i += 1;
             }
 
-            while lt_s < lt_e && ctrl != b'\n' {
-                let (n, c) = read(&mut input);
-                let new_diff = n - prev;
+            if lt_st != 4 {
+                while lt_st == 0 && ctrl != b'\n' {
+                    let (n, c) = read(&mut input);
+                    let p_diff = n - prev;
 
-                let old_lt_ppv = lt_ppv;
-                lt_ppv = (1..4).contains(&new_diff);
+                    if !(1..4).contains(&p_diff) {
+                        let pp_diff = n - prevprev;
+                        let lt_idx = 2 * ((1..4).contains(&p_diff) as usize)
+                            + (1..4).contains(&pp_diff) as usize;
 
-                if !old_lt_ppv || !lt_ppv {
-                    let rdiff = n - prevprev;
-                    let r_ok = (1..4).contains(&rdiff);
-                    if !old_lt_ppv {
-                        lt_e = lt_e.min(if r_ok { i } else { i - 1 });
+                        lt_st = *STATE_MAP
+                            .get_unchecked(lt_st as usize)
+                            .get_unchecked(lt_idx);
                     }
-                    if !lt_ppv {
-                        lt_s = lt_s.max(if r_ok { i - 1 } else { i });
-                    }
+
+                    (prevprev, prev, ctrl) = (prev, n, c);
                 }
 
-                (prevprev, prev, ctrl) = (prev, n, c);
-                i += 1;
-            }
+                if ctrl != b'\n' {
+                    let (n, c) = read(&mut input);
+                    let p_diff = n - prev;
+                    let pp_diff = n - prevprev;
 
-            while gt_s < gt_e && ctrl != b'\n' {
-                let (n, c) = read(&mut input);
-                let new_diff = n - prev;
+                    let lt_idx = 2 * ((1..4).contains(&p_diff) as usize)
+                        + (1..4).contains(&pp_diff) as usize;
 
-                let old_gt_ppv = gt_ppv;
-                gt_ppv = (-3..0).contains(&new_diff);
+                    lt_st = *STATE_MAP
+                        .get_unchecked(lt_st as usize)
+                        .get_unchecked(lt_idx);
 
-                if !old_gt_ppv || !gt_ppv {
-                    let rdiff = n - prevprev;
-                    let r_ok = (-3..0).contains(&rdiff);
-                    if !old_gt_ppv {
-                        gt_e = gt_e.min(if r_ok { i } else { i - 1 });
-                    }
-                    if !gt_ppv {
-                        gt_s = gt_s.max(if r_ok { i - 1 } else { i });
-                    }
+                    (prev, ctrl) = (n, c);
                 }
 
-                (prevprev, prev, ctrl) = (prev, n, c);
-                i += 1;
+                while lt_st == 3 && ctrl != b'\n' {
+                    let (n, c) = read(&mut input);
+                    let p_diff = n - prev;
+
+                    if !(1..4).contains(&p_diff) {
+                        lt_st = 4;
+                    }
+
+                    (prev, ctrl) = (n, c);
+                }
+            } else if gt_st != 4 {
+                while gt_st == 0 && ctrl != b'\n' {
+                    let (n, c) = read(&mut input);
+                    let p_diff = n - prev;
+
+                    if !(-3..0).contains(&p_diff) {
+                        let pp_diff = n - prevprev;
+                        let gt_idx = 2 * ((-3..0).contains(&p_diff) as usize)
+                            + (-3..0).contains(&pp_diff) as usize;
+
+                        gt_st = *STATE_MAP
+                            .get_unchecked(gt_st as usize)
+                            .get_unchecked(gt_idx);
+                    }
+
+                    (prevprev, prev, ctrl) = (prev, n, c);
+                }
+
+                if ctrl != b'\n' {
+                    let (n, c) = read(&mut input);
+                    let p_diff = n - prev;
+                    let pp_diff = n - prevprev;
+
+                    let gt_idx = 2 * ((-3..0).contains(&p_diff) as usize)
+                        + (-3..0).contains(&pp_diff) as usize;
+
+                    gt_st = *STATE_MAP
+                        .get_unchecked(gt_st as usize)
+                        .get_unchecked(gt_idx);
+
+                    (prev, ctrl) = (n, c);
+                }
+
+                while gt_st == 3 && ctrl != b'\n' {
+                    let (n, c) = read(&mut input);
+                    let p_diff = n - prev;
+
+                    if !(-3..0).contains(&p_diff) {
+                        gt_st = 4;
+                    }
+
+                    (prev, ctrl) = (n, c);
+                }
             }
 
             if ctrl != b'\n' {
                 while *input.next().unwrap_unchecked() != b'\n' {}
-            } else {
-                if !lt_ppv {
-                    lt_e = lt_e.min(i);
-                }
-                if !gt_ppv {
-                    gt_e = gt_e.min(i);
-                }
             }
 
-            if lt_s < lt_e || gt_s < gt_e {
+            if lt_st != 4 || gt_st != 4 {
                 count += 1;
             }
         }
