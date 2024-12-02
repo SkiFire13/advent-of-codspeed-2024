@@ -2,6 +2,32 @@ pub fn run(input: &str) -> i64 {
     part2(input) as i64
 }
 
+static LT_VALID: [bool; 256] = {
+    let mut out = [false; 256];
+    out[1] = true;
+    out[2] = true;
+    out[3] = true;
+    out
+};
+
+#[inline(always)]
+fn lt_valid(diff: i8) -> bool {
+    LT_VALID[diff as u8 as usize]
+}
+
+static GT_VALID: [bool; 256] = {
+    let mut out = [false; 256];
+    out[253] = true;
+    out[254] = true;
+    out[255] = true;
+    out
+};
+
+#[inline(always)]
+fn gt_valid(diff: i8) -> bool {
+    GT_VALID[diff as u8 as usize]
+}
+
 pub fn part1(input: &str) -> u32 {
     let mut input = input.as_bytes().iter();
 
@@ -27,9 +53,20 @@ pub fn part1(input: &str) -> u32 {
 
             let diff = n2 - n1;
 
+            static VALID: [bool; 256] = {
+                let mut out = [false; 256];
+                out[253] = true;
+                out[254] = true;
+                out[255] = true;
+                out[1] = true;
+                out[2] = true;
+                out[3] = true;
+                out
+            };
+
             let mut prev = n2;
             let mut ctrl = c2;
-            let mut valid = diff != 0 && (-3..4).contains(&diff);
+            let mut valid = VALID[diff as u8 as usize];
 
             if valid {
                 if diff > 0 {
@@ -38,7 +75,7 @@ pub fn part1(input: &str) -> u32 {
                         let new_diff = n - prev;
                         (prev, ctrl) = (n, c);
 
-                        valid &= (1..4).contains(&new_diff);
+                        valid &= lt_valid(new_diff);
                     }
                 } else {
                     while valid && ctrl != b'\n' {
@@ -46,7 +83,7 @@ pub fn part1(input: &str) -> u32 {
                         let new_diff = n - prev;
                         (prev, ctrl) = (n, c);
 
-                        valid &= (-3..0).contains(&new_diff);
+                        valid &= gt_valid(new_diff);
                     }
                 }
             }
@@ -96,18 +133,16 @@ pub fn part2(input: &str) -> u32 {
             static STATE_MAP: [[u8; 4]; 4] =
                 [[2, 1, 0, 0], [4, 3, 3, 3], [4, 3, 4, 3], [4, 4, 3, 3]];
 
-            let mut lt_st = if (1..4).contains(&diff) { 0 } else { 1 };
-            let mut gt_st = if (-3..0).contains(&diff) { 0 } else { 1 };
+            let mut lt_st = if lt_valid(diff) { 0 } else { 1 };
+            let mut gt_st = if gt_valid(diff) { 0 } else { 1 };
 
             while lt_st != 4 && gt_st != 4 && ctrl != b'\n' {
                 let (n, c) = read(&mut input);
                 let p_diff = n - prev;
                 let pp_diff = n - prevprev;
 
-                let lt_idx =
-                    2 * ((1..4).contains(&p_diff) as usize) + (1..4).contains(&pp_diff) as usize;
-                let gt_idx =
-                    2 * ((-3..0).contains(&p_diff) as usize) + (-3..0).contains(&pp_diff) as usize;
+                let lt_idx = 2 * (lt_valid(p_diff) as usize) + lt_valid(pp_diff) as usize;
+                let gt_idx = 2 * (gt_valid(p_diff) as usize) + gt_valid(pp_diff) as usize;
 
                 lt_st = *STATE_MAP
                     .get_unchecked(lt_st as usize)
@@ -124,10 +159,9 @@ pub fn part2(input: &str) -> u32 {
                     let (n, c) = read(&mut input);
                     let p_diff = n - prev;
 
-                    if !(1..4).contains(&p_diff) {
+                    if !lt_valid(p_diff) {
                         let pp_diff = n - prevprev;
-                        let lt_idx = 2 * ((1..4).contains(&p_diff) as usize)
-                            + (1..4).contains(&pp_diff) as usize;
+                        let lt_idx = 2 * (lt_valid(p_diff) as usize) + lt_valid(pp_diff) as usize;
 
                         lt_st = *STATE_MAP
                             .get_unchecked(lt_st as usize)
@@ -142,8 +176,7 @@ pub fn part2(input: &str) -> u32 {
                     let p_diff = n - prev;
                     let pp_diff = n - prevprev;
 
-                    let lt_idx = 2 * ((1..4).contains(&p_diff) as usize)
-                        + (1..4).contains(&pp_diff) as usize;
+                    let lt_idx = 2 * (lt_valid(p_diff) as usize) + lt_valid(pp_diff) as usize;
 
                     lt_st = *STATE_MAP
                         .get_unchecked(lt_st as usize)
@@ -156,7 +189,7 @@ pub fn part2(input: &str) -> u32 {
                     let (n, c) = read(&mut input);
                     let p_diff = n - prev;
 
-                    if !(1..4).contains(&p_diff) {
+                    if !lt_valid(p_diff) {
                         lt_st = 4;
                     }
 
@@ -167,10 +200,9 @@ pub fn part2(input: &str) -> u32 {
                     let (n, c) = read(&mut input);
                     let p_diff = n - prev;
 
-                    if !(-3..0).contains(&p_diff) {
+                    if !gt_valid(p_diff) {
                         let pp_diff = n - prevprev;
-                        let gt_idx = 2 * ((-3..0).contains(&p_diff) as usize)
-                            + (-3..0).contains(&pp_diff) as usize;
+                        let gt_idx = 2 * (gt_valid(p_diff) as usize) + gt_valid(pp_diff) as usize;
 
                         gt_st = *STATE_MAP
                             .get_unchecked(gt_st as usize)
@@ -185,8 +217,7 @@ pub fn part2(input: &str) -> u32 {
                     let p_diff = n - prev;
                     let pp_diff = n - prevprev;
 
-                    let gt_idx = 2 * ((-3..0).contains(&p_diff) as usize)
-                        + (-3..0).contains(&pp_diff) as usize;
+                    let gt_idx = 2 * (gt_valid(p_diff) as usize) + gt_valid(pp_diff) as usize;
 
                     gt_st = *STATE_MAP
                         .get_unchecked(gt_st as usize)
@@ -199,7 +230,7 @@ pub fn part2(input: &str) -> u32 {
                     let (n, c) = read(&mut input);
                     let p_diff = n - prev;
 
-                    if !(-3..0).contains(&p_diff) {
+                    if !gt_valid(p_diff) {
                         gt_st = 4;
                     }
 
