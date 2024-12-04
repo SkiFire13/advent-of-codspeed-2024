@@ -1,5 +1,6 @@
 #![allow(unused_attributes)]
 #![feature(portable_simd)]
+#![feature(avx512_target_feature)]
 
 use std::simd::cmp::SimdPartialEq;
 use std::simd::u8x64;
@@ -17,6 +18,7 @@ pub fn part2(input: &str) -> u32 {
 }
 
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
+#[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 pub unsafe fn inner_part1(input: &str) -> u32 {
     let mut iter = input.as_bytes().iter();
 
@@ -104,6 +106,7 @@ pub unsafe fn inner_part1(input: &str) -> u32 {
 }
 
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
+#[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 pub unsafe fn inner_part2(input: &str) -> u32 {
     let mut iter = input.as_bytes().iter();
 
