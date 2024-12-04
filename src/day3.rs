@@ -102,49 +102,51 @@ pub fn part2(input: &str) -> u32 {
         iter: std::slice::Iter<u8>,
         sum: &mut u32,
         enabled: &mut bool,
-        mul_mask: u64,
+        mut mul_mask: u64,
         dont_mask: u64,
     ) -> usize {
-        let mut mul_dont_mask = mul_mask | dont_mask;
+        if dont_mask != 0 {
+            mul_mask &= (1 << dont_mask.trailing_zeros()) - 1;
+        }
 
         let mut pos = 0;
 
-        while mul_dont_mask != 0 {
+        while mul_mask != 0 {
             let iter = iter.as_slice();
 
-            pos = mul_dont_mask.trailing_zeros() as usize;
-            mul_dont_mask &= !(1 << pos);
+            pos = mul_mask.trailing_zeros() as usize;
+            mul_mask &= !(1 << pos);
 
-            if mul_mask & (1 << pos) != 0 {
+            pos += 1;
+
+            let mut l = 0;
+            while (!B || pos < iter.len()) && iter.get_unchecked(pos).wrapping_sub(b'0') <= 9 {
+                l = 10 * l + iter.get_unchecked(pos).wrapping_sub(b'0') as u32;
                 pos += 1;
-
-                let mut l = 0;
-                while (!B || pos < iter.len()) && iter.get_unchecked(pos).wrapping_sub(b'0') <= 9 {
-                    l = 10 * l + iter.get_unchecked(pos).wrapping_sub(b'0') as u32;
-                    pos += 1;
-                }
-
-                if (B && pos >= iter.len()) || *iter.get_unchecked(pos) != b',' {
-                    continue;
-                }
-                pos += 1;
-
-                let mut r = 0;
-                while (!B || pos < iter.len()) && iter.get_unchecked(pos).wrapping_sub(b'0') <= 9 {
-                    r = 10 * r + iter.get_unchecked(pos).wrapping_sub(b'0') as u32;
-                    pos += 1;
-                }
-
-                if (B && pos >= iter.len()) || *iter.get_unchecked(pos) != b')' {
-                    continue;
-                }
-                pos += 1;
-
-                *sum += l * r;
-            } else {
-                *enabled = false;
-                return pos as usize + 1;
             }
+
+            if (B && pos >= iter.len()) || *iter.get_unchecked(pos) != b',' {
+                continue;
+            }
+            pos += 1;
+
+            let mut r = 0;
+            while (!B || pos < iter.len()) && iter.get_unchecked(pos).wrapping_sub(b'0') <= 9 {
+                r = 10 * r + iter.get_unchecked(pos).wrapping_sub(b'0') as u32;
+                pos += 1;
+            }
+
+            if (B && pos >= iter.len()) || *iter.get_unchecked(pos) != b')' {
+                continue;
+            }
+            pos += 1;
+
+            *sum += l * r;
+        }
+
+        if dont_mask != 0 {
+            *enabled = false;
+            return dont_mask.trailing_zeros() as usize + 1;
         }
 
         std::cmp::max(58, pos as usize)
