@@ -9,6 +9,15 @@ pub fn run(input: &str) -> i64 {
 }
 
 pub fn part1(input: &str) -> u32 {
+    unsafe { inner_part1(input) }
+}
+
+pub fn part2(input: &str) -> u32 {
+    unsafe { inner_part2(input) }
+}
+
+#[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
+pub unsafe fn inner_part1(input: &str) -> u32 {
     let mut iter = input.as_bytes().iter();
 
     #[inline(always)]
@@ -94,7 +103,8 @@ pub fn part1(input: &str) -> u32 {
     sum
 }
 
-pub fn part2(input: &str) -> u32 {
+#[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
+pub unsafe fn inner_part2(input: &str) -> u32 {
     let mut iter = input.as_bytes().iter();
 
     #[inline(always)]
