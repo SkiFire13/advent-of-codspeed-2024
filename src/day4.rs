@@ -92,74 +92,44 @@ unsafe fn inner_part1(input: &str) -> u32 {
         dl.count_ones() + dr.count_ones()
     }
 
+    macro_rules! extract {
+        ($x:pat, $m:pat, $a:pat, $s:pat = $line:expr) => {
+            let line = u8x64::from_slice($line);
+            let $x = line.simd_eq(u8x64::splat(b'X')).to_bitmask();
+            let $m = line.simd_eq(u8x64::splat(b'M')).to_bitmask();
+            let $a = line.simd_eq(u8x64::splat(b'A')).to_bitmask();
+            let $s = line.simd_eq(u8x64::splat(b'S')).to_bitmask();
+        };
+    }
+
     let mut count = 0;
 
     let line = &input[0 * 141..][..140];
-    let ppp1 = u8x64::from_slice(&line[R1]);
-    let mut pppx1 = ppp1.simd_eq(u8x64::splat(b'X')).to_bitmask();
-    let pppm1 = ppp1.simd_eq(u8x64::splat(b'M')).to_bitmask();
-    let pppa1 = ppp1.simd_eq(u8x64::splat(b'A')).to_bitmask();
-    let mut ppps1 = ppp1.simd_eq(u8x64::splat(b'S')).to_bitmask();
+    extract!(mut pppx1, pppm1, pppa1, mut ppps1 = &line[R1]);
     count += check_horiz::<1>(pppx1, pppm1, pppa1, ppps1);
-    let ppp2 = u8x64::from_slice(&line[R2]);
-    let mut pppx2 = ppp2.simd_eq(u8x64::splat(b'X')).to_bitmask();
-    let pppm2 = ppp2.simd_eq(u8x64::splat(b'M')).to_bitmask();
-    let pppa2 = ppp2.simd_eq(u8x64::splat(b'A')).to_bitmask();
-    let mut ppps2 = ppp2.simd_eq(u8x64::splat(b'S')).to_bitmask();
+    extract!(mut pppx2, pppm2, pppa2, mut ppps2 = &line[R2]);
     count += check_horiz::<2>(pppx2, pppm2, pppa2, ppps2);
-    let ppp3 = u8x64::from_slice(&line[R3]);
-    let mut pppx3 = ppp3.simd_eq(u8x64::splat(b'X')).to_bitmask();
-    let pppm3 = ppp3.simd_eq(u8x64::splat(b'M')).to_bitmask();
-    let pppa3 = ppp3.simd_eq(u8x64::splat(b'A')).to_bitmask();
-    let mut ppps3 = ppp3.simd_eq(u8x64::splat(b'S')).to_bitmask();
+    extract!(mut pppx3, pppm3, pppa3, mut ppps3 = &line[R3]);
     count += check_horiz::<3>(pppx3, pppm3, pppa3, ppps3);
 
     let line = &input[1 * 141..][..140];
-    let pp1 = u8x64::from_slice(&line[R1]);
-    let mut ppx1 = pp1.simd_eq(u8x64::splat(b'X')).to_bitmask();
-    let mut ppm1 = pp1.simd_eq(u8x64::splat(b'M')).to_bitmask();
-    let mut ppa1 = pp1.simd_eq(u8x64::splat(b'A')).to_bitmask();
-    let mut pps1 = pp1.simd_eq(u8x64::splat(b'S')).to_bitmask();
+    extract!(mut ppx1, mut ppm1, mut ppa1, mut pps1 = &line[R1]);
     count += check_horiz::<1>(ppx1, ppm1, ppa1, pps1);
-    let pp2 = u8x64::from_slice(&line[R2]);
-    let mut ppx2 = pp2.simd_eq(u8x64::splat(b'X')).to_bitmask();
-    let mut ppm2 = pp2.simd_eq(u8x64::splat(b'M')).to_bitmask();
-    let mut ppa2 = pp2.simd_eq(u8x64::splat(b'A')).to_bitmask();
-    let mut pps2 = pp2.simd_eq(u8x64::splat(b'S')).to_bitmask();
+    extract!(mut ppx2, mut ppm2, mut ppa2, mut pps2 = &line[R2]);
     count += check_horiz::<2>(ppx2, ppm2, ppa2, pps2);
-    let pp3 = u8x64::from_slice(&line[R3]);
-    let mut ppx3 = pp3.simd_eq(u8x64::splat(b'X')).to_bitmask();
-    let mut ppm3 = pp3.simd_eq(u8x64::splat(b'M')).to_bitmask();
-    let mut ppa3 = pp3.simd_eq(u8x64::splat(b'A')).to_bitmask();
-    let mut pps3 = pp3.simd_eq(u8x64::splat(b'S')).to_bitmask();
+    extract!(mut ppx3, mut ppm3, mut ppa3, mut pps3 = &line[R3]);
     count += check_horiz::<3>(ppx3, ppm3, ppa3, pps3);
 
     let line = &input[2 * 141..][..140];
-    let p1 = u8x64::from_slice(&line[R1]);
-    let mut px1 = p1.simd_eq(u8x64::splat(b'X')).to_bitmask();
-    let mut pm1 = p1.simd_eq(u8x64::splat(b'M')).to_bitmask();
-    let mut pa1 = p1.simd_eq(u8x64::splat(b'A')).to_bitmask();
-    let mut ps1 = p1.simd_eq(u8x64::splat(b'S')).to_bitmask();
+    extract!(mut px1, mut pm1, mut pa1, mut ps1 = &line[R1]);
     count += check_horiz::<1>(px1, pm1, pa1, ps1);
-    let p2 = u8x64::from_slice(&line[R2]);
-    let mut px2 = p2.simd_eq(u8x64::splat(b'X')).to_bitmask();
-    let mut pm2 = p2.simd_eq(u8x64::splat(b'M')).to_bitmask();
-    let mut pa2 = p2.simd_eq(u8x64::splat(b'A')).to_bitmask();
-    let mut ps2 = p2.simd_eq(u8x64::splat(b'S')).to_bitmask();
+    extract!(mut px2, mut pm2, mut pa2, mut ps2 = &line[R2]);
     count += check_horiz::<2>(px2, pm2, pa2, ps2);
-    let p3 = u8x64::from_slice(&line[R3]);
-    let mut px3 = p3.simd_eq(u8x64::splat(b'X')).to_bitmask();
-    let mut pm3 = p3.simd_eq(u8x64::splat(b'M')).to_bitmask();
-    let mut pa3 = p3.simd_eq(u8x64::splat(b'A')).to_bitmask();
-    let mut ps3 = p3.simd_eq(u8x64::splat(b'S')).to_bitmask();
+    extract!(mut px3, mut pm3, mut pa3, mut ps3 = &line[R3]);
     count += check_horiz::<3>(px3, pm3, pa3, ps3);
 
     for line in input[3 * 141..].chunks_exact(141) {
-        let c1 = u8x64::from_slice(&line[R1]);
-        let cx1 = c1.simd_eq(u8x64::splat(b'X')).to_bitmask();
-        let cm1 = c1.simd_eq(u8x64::splat(b'M')).to_bitmask();
-        let ca1 = c1.simd_eq(u8x64::splat(b'A')).to_bitmask();
-        let cs1 = c1.simd_eq(u8x64::splat(b'S')).to_bitmask();
+        extract!(cx1, cm1, ca1, cs1 = &line[R1]);
         count += check_horiz::<1>(cx1, cm1, ca1, cs1);
         count += check_vert::<1>(pppx1, ppps1, ppm1, ppa1, pm1, pa1, cx1, cs1);
         count += check_diag::<1>(pppx1, ppps1, ppm1, ppa1, pm1, pa1, cx1, cs1);
@@ -168,11 +138,7 @@ unsafe fn inner_part1(input: &str) -> u32 {
         (ppa1, pa1) = (pa1, ca1);
         (ppps1, pps1, ps1) = (pps1, ps1, cs1);
 
-        let c2 = u8x64::from_slice(&line[R2]);
-        let cx2 = c2.simd_eq(u8x64::splat(b'X')).to_bitmask();
-        let cm2 = c2.simd_eq(u8x64::splat(b'M')).to_bitmask();
-        let ca2 = c2.simd_eq(u8x64::splat(b'A')).to_bitmask();
-        let cs2 = c2.simd_eq(u8x64::splat(b'S')).to_bitmask();
+        extract!(cx2, cm2, ca2, cs2 = &line[R2]);
         count += check_horiz::<2>(cx2, cm2, ca2, cs2);
         count += check_vert::<2>(pppx2, ppps2, ppm2, ppa2, pm2, pa2, cx2, cs2);
         count += check_diag::<2>(pppx2, ppps2, ppm2, ppa2, pm2, pa2, cx2, cs2);
@@ -181,11 +147,7 @@ unsafe fn inner_part1(input: &str) -> u32 {
         (ppa2, pa2) = (pa2, ca2);
         (ppps2, pps2, ps2) = (pps2, ps2, cs2);
 
-        let c3 = u8x64::from_slice(&line[R3]);
-        let cx3 = c3.simd_eq(u8x64::splat(b'X')).to_bitmask();
-        let cm3 = c3.simd_eq(u8x64::splat(b'M')).to_bitmask();
-        let ca3 = c3.simd_eq(u8x64::splat(b'A')).to_bitmask();
-        let cs3 = c3.simd_eq(u8x64::splat(b'S')).to_bitmask();
+        extract!(cx3, cm3, ca3, cs3 = &line[R3]);
         count += check_horiz::<3>(cx3, cm3, ca3, cs3);
         count += check_vert::<3>(pppx3, ppps3, ppm3, ppa3, pm3, pa3, cx3, cs3);
         count += check_diag::<3>(pppx3, ppps3, ppm3, ppa3, pm3, pa3, cx3, cs3);
