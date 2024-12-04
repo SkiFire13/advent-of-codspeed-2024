@@ -1,6 +1,8 @@
-#![feature(portable_simd)]
-
-fn bench<D: std::fmt::Display>(f: impl FnOnce() -> D) {
+fn bench<D: std::fmt::Display>(mut f: impl FnMut() -> D) {
+    if !cfg!(debug_assertions) {
+        f();
+        f();
+    }
     let now = std::time::Instant::now();
     let sol = f();
     println!("Took: {:?}", now.elapsed());
@@ -18,6 +20,6 @@ macro_rules! run {
 }
 
 fn main() {
-    bench(|| run!(day3, part1));
-    bench(|| run!(day3, part2));
+    bench(|| run!(day4, part1));
+    bench(|| run!(day4, part2));
 }
