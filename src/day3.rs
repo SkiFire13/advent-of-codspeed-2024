@@ -30,9 +30,17 @@ pub unsafe fn inner_part1(input: &str) -> u32 {
 
             let mut i = pos as usize + 1;
             let mut l = 0;
-            while (!B || i < input.len()) && input.get_unchecked(i).wrapping_sub(b'0') <= 9 {
+            if (!B || i < input.len()) && input.get_unchecked(i).wrapping_sub(b'0') <= 9 {
                 l = 10 * l + input.get_unchecked(i).wrapping_sub(b'0') as u32;
                 i += 1;
+                if (!B || i < input.len()) && input.get_unchecked(i).wrapping_sub(b'0') <= 9 {
+                    l = 10 * l + input.get_unchecked(i).wrapping_sub(b'0') as u32;
+                    i += 1;
+                    if (!B || i < input.len()) && input.get_unchecked(i).wrapping_sub(b'0') <= 9 {
+                        l = 10 * l + input.get_unchecked(i).wrapping_sub(b'0') as u32;
+                        i += 1;
+                    }
+                }
             }
 
             if (B && i >= input.len()) || *input.get_unchecked(i) != b',' {
@@ -41,9 +49,17 @@ pub unsafe fn inner_part1(input: &str) -> u32 {
             i += 1;
 
             let mut r = 0;
-            while (!B || i < input.len()) && input.get_unchecked(i).wrapping_sub(b'0') <= 9 {
+            if (!B || i < input.len()) && input.get_unchecked(i).wrapping_sub(b'0') <= 9 {
                 r = 10 * r + input.get_unchecked(i).wrapping_sub(b'0') as u32;
                 i += 1;
+                if (!B || i < input.len()) && input.get_unchecked(i).wrapping_sub(b'0') <= 9 {
+                    r = 10 * r + input.get_unchecked(i).wrapping_sub(b'0') as u32;
+                    i += 1;
+                    if (!B || i < input.len()) && input.get_unchecked(i).wrapping_sub(b'0') <= 9 {
+                        r = 10 * r + input.get_unchecked(i).wrapping_sub(b'0') as u32;
+                        i += 1;
+                    }
+                }
             }
 
             if (B && i >= input.len()) || *input.get_unchecked(i) != b')' {
@@ -133,9 +149,17 @@ pub unsafe fn inner_part2(input: &str) -> u32 {
             pos += 1;
 
             let mut l = 0;
-            while (!B || pos < iter.len()) && iter.get_unchecked(pos).wrapping_sub(b'0') <= 9 {
+            if (!B || pos < iter.len()) && iter.get_unchecked(pos).wrapping_sub(b'0') <= 9 {
                 l = 10 * l + iter.get_unchecked(pos).wrapping_sub(b'0') as u32;
                 pos += 1;
+                if (!B || pos < iter.len()) && iter.get_unchecked(pos).wrapping_sub(b'0') <= 9 {
+                    l = 10 * l + iter.get_unchecked(pos).wrapping_sub(b'0') as u32;
+                    pos += 1;
+                    if (!B || pos < iter.len()) && iter.get_unchecked(pos).wrapping_sub(b'0') <= 9 {
+                        l = 10 * l + iter.get_unchecked(pos).wrapping_sub(b'0') as u32;
+                        pos += 1;
+                    }
+                }
             }
 
             if (B && pos >= iter.len()) || *iter.get_unchecked(pos) != b',' {
@@ -144,9 +168,17 @@ pub unsafe fn inner_part2(input: &str) -> u32 {
             pos += 1;
 
             let mut r = 0;
-            while (!B || pos < iter.len()) && iter.get_unchecked(pos).wrapping_sub(b'0') <= 9 {
+            if (!B || pos < iter.len()) && iter.get_unchecked(pos).wrapping_sub(b'0') <= 9 {
                 r = 10 * r + iter.get_unchecked(pos).wrapping_sub(b'0') as u32;
                 pos += 1;
+                if (!B || pos < iter.len()) && iter.get_unchecked(pos).wrapping_sub(b'0') <= 9 {
+                    r = 10 * r + iter.get_unchecked(pos).wrapping_sub(b'0') as u32;
+                    pos += 1;
+                    if (!B || pos < iter.len()) && iter.get_unchecked(pos).wrapping_sub(b'0') <= 9 {
+                        r = 10 * r + iter.get_unchecked(pos).wrapping_sub(b'0') as u32;
+                        pos += 1;
+                    }
+                }
             }
 
             if (B && pos >= iter.len()) || *iter.get_unchecked(pos) != b')' {
