@@ -193,12 +193,9 @@ unsafe fn inner_part2(input: &str) -> u32 {
 
     #[inline(always)]
     fn check_chunk(ppm: u64, pps: u64, pa: u64, cm: u64, cs: u64) -> u32 {
-        let mut tot = 0;
-        tot |= (ppm >> 1) & (pps << 1) & pa & (cm >> 1) & (cs << 1);
-        tot |= (ppm >> 1) & (ppm << 1) & pa & (cs >> 1) & (cs << 1);
-        tot |= (pps >> 1) & (ppm << 1) & pa & (cs >> 1) & (cm << 1);
-        tot |= (pps >> 1) & (pps << 1) & pa & (cm >> 1) & (cm << 1);
-        tot.count_ones()
+        let l = (ppm & (cs >> 2)) | (pps & (cm >> 2));
+        let r = ((ppm >> 2) & cs) | ((pps >> 2) & cm);
+        (l & r & (pa >> 1)).count_ones()
     }
 
     for line in input[141 * 2..].chunks_exact(141) {
