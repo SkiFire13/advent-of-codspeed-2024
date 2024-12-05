@@ -163,53 +163,50 @@ unsafe fn inner_part1(input: &str) -> u32 {
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part2(input: &str) -> u32 {
-    let input = input.as_bytes();
+    let mut iter = input.as_bytes().iter();
 
     let mut count = 0;
 
-    const R1: Range<usize> = 0..64;
-    const R2: Range<usize> = 62..126;
-    const R3: Range<usize> = (140 - 64)..140;
-    const MASK_A3: u64 = !((1u64 << (64 - (140 - 125))) - 1);
+    while iter.len() >= 2 * 141 + 2 + 64 {
+        macro_rules! body {
+            () => {{
+                let s = iter.as_slice().get_unchecked(..2 * 141 + 2 + 64);
 
-    macro_rules! extract {
-        ($m:pat, $s:pat, $a:pat = $line:expr) => {
-            let line = u8x64::from_slice($line);
-            let $m = line.simd_eq(u8x64::splat(b'M')).to_bitmask();
-            let $s = line.simd_eq(u8x64::splat(b'S')).to_bitmask();
-            let $a = line.simd_eq(u8x64::splat(b'A')).to_bitmask();
-        };
-    }
+                let tl = u8x64::from_slice(s);
+                let tr = u8x64::from_slice(&s[2..]);
+                let c = u8x64::from_slice(&s[141 + 1..]);
+                let bl = u8x64::from_slice(&s[2 * 141..]);
+                let br = u8x64::from_slice(&s[2 * 141 + 2..]);
 
-    let line = &input[..140];
-    extract!(mut ppm1, mut pps1, _ = &line[R1]);
-    extract!(mut ppm2, mut pps2, _ = &line[R2]);
-    extract!(mut ppm3, mut pps3, _ = &line[R3]);
+                let tb = (tl ^ br).simd_eq(u8x64::splat(b'M' ^ b'S'));
+                let a = c.simd_eq(u8x64::splat(b'A'));
+                let bt = (bl ^ tr).simd_eq(u8x64::splat(b'M' ^ b'S'));
 
-    let line = &input[141..][..140];
-    extract!(mut pm1, mut ps1, mut pa1 = &line[R1]);
-    extract!(mut pm2, mut ps2, mut pa2 = &line[R2]);
-    extract!(mut pm3, mut ps3, mut pa3 = &line[R3]);
+                count += (tb & a & bt).to_bitmask().count_ones();
 
-    #[inline(always)]
-    fn check_chunk(ppm: u64, pps: u64, pa: u64, cm: u64, cs: u64) -> u32 {
-        let l = (ppm & (cs >> 2)) | (pps & (cm >> 2));
-        let r = ((ppm >> 2) & cs) | ((pps >> 2) & cm);
-        (l & r & (pa >> 1)).count_ones()
-    }
+                iter = iter.as_slice().get_unchecked(64..).iter();
+            }};
+        }
 
-    for line in input[141 * 2..].chunks_exact(141) {
-        extract!(cm1, cs1, ca1 = &line[R1]);
-        count += check_chunk(ppm1, pps1, pa1, cm1, cs1);
-        (ppm1, pps1, pm1, ps1, pa1) = (pm1, ps1, cm1, cs1, ca1);
-
-        extract!(cm2, cs2, ca2 = &line[R2]);
-        count += check_chunk(ppm2, pps2, pa2, cm2, cs2);
-        (ppm2, pps2, pm2, ps2, pa2) = (pm2, ps2, cm2, cs2, ca2);
-
-        extract!(cm3, cs3, ca3 = &line[R3]);
-        count += check_chunk(ppm3, pps3, pa3 & MASK_A3, cm3, cs3);
-        (ppm3, pps3, pm3, ps3, pa3) = (pm3, ps3, cm3, cs3, ca3);
+        body!();
+        body!();
+        body!();
+        body!();
+        body!();
+        body!();
+        body!();
+        body!();
+        body!();
+        body!();
+        body!();
+        body!();
+        body!();
+        body!();
+        body!();
+        body!();
+        body!();
+        body!();
+        body!();
     }
 
     count
