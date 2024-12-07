@@ -127,11 +127,17 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
             let rest = nums.get_unchecked(..nums.len() - 1);
 
-            let pow10 = *[10, 100, 1000].get_unchecked(l);
-            std::hint::assert_unchecked(pow10 != 0);
+            use fastdiv::PrecomputedDivU64;
+            static LUT: [PrecomputedDivU64; 3] = [
+                PrecomputedDivU64::new(10),
+                PrecomputedDivU64::new(100),
+                PrecomputedDivU64::new(1000),
+            ];
+            let pow10 = *LUT.get_unchecked(l);
             let sub = goal - n;
-            let (div, rem) = (sub / pow10, sub % pow10);
-            if rem == 0 && solve_rec(div, rest) {
+            if PrecomputedDivU64::is_multiple_of(sub, pow10)
+                && solve_rec(PrecomputedDivU64::fast_div(sub, pow10), rest)
+            {
                 return true;
             }
 
@@ -150,4 +156,49 @@ unsafe fn inner_part2(input: &str) -> u64 {
     }
 
     tot
+}
+
+mod fastdiv {
+    #[inline]
+    const fn mul128_u64(lowbits: u128, d: u64) -> u64 {
+        let mut bottom_half = (lowbits & 0xFFFFFFFFFFFFFFFF) * d as u128;
+        bottom_half >>= 64;
+        let top_half = (lowbits >> 64) * d as u128;
+        let both_halves = bottom_half + top_half;
+        (both_halves >> 64) as u64
+    }
+
+    #[inline]
+    const fn compute_m_u64(d: u64) -> u128 {
+        (0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF / d as u128) + 1
+    }
+    // for d > 1
+    #[inline]
+    const fn fastdiv_u64(a: u64, m: u128) -> u64 {
+        mul128_u64(m, a)
+    }
+    #[inline]
+    const fn is_divisible_u64(n: u64, m: u128) -> bool {
+        (n as u128).wrapping_mul(m) <= m - 1
+    }
+
+    #[derive(Clone, Copy, Eq, PartialEq)]
+    pub struct PrecomputedDivU64(u128);
+
+    impl PrecomputedDivU64 {
+        #[inline]
+        pub const fn new(n: u64) -> Self {
+            Self(compute_m_u64(n))
+        }
+
+        #[inline]
+        pub fn fast_div(n: u64, precomputed: Self) -> u64 {
+            fastdiv_u64(n, precomputed.0)
+        }
+
+        #[inline]
+        pub fn is_multiple_of(n: u64, precomputed: Self) -> bool {
+            is_divisible_u64(n, precomputed.0)
+        }
+    }
 }
