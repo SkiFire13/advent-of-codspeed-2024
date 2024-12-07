@@ -485,6 +485,7 @@ unsafe fn inner_part2(input: &str) -> u32 {
         new_rock_pos: usize,
         dir: usize,
     ) -> bool {
+        #[cfg(debug_assertions)]
         let orig = move_map[..rocks.len() * 4].to_vec();
 
         for &mov in &move_map[..(rocks.len() + 2) * 4] {
@@ -686,6 +687,7 @@ unsafe fn inner_part2(input: &str) -> u32 {
             }
         }
 
+        #[cfg(debug_assertions)]
         debug_assert_eq!(&move_map[..rocks.len() * 4], orig);
 
         cycle
