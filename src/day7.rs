@@ -52,24 +52,21 @@ unsafe fn inner_part1(input: &str) -> u64 {
         input = input.as_slice().get_unchecked(1..).iter();
 
         unsafe fn solve_rec(goal: u64, nums: &[u64]) -> bool {
+            let n = *nums.get_unchecked(nums.len() - 1) as u64;
+
             if nums.len() == 1 {
-                return goal == *nums.get_unchecked(0);
+                return goal == n;
             }
 
-            let n = *nums.get_unchecked(nums.len() - 1);
             let rest = nums.get_unchecked(..nums.len() - 1);
 
             std::hint::assert_unchecked(n != 0);
-
-            if goal < n {
-                return false;
-            }
-
-            if goal % n == 0 && solve_rec(goal / n, rest) {
+            let (div, rem) = (goal / n, goal % n);
+            if rem == 0 && solve_rec(div, rest) {
                 return true;
             }
 
-            solve_rec(goal - n, rest)
+            goal > n && solve_rec(goal - n, rest)
         }
 
         if solve_rec(goal, &buf.get_unchecked(..buf_len)) {
@@ -101,54 +98,46 @@ unsafe fn inner_part2(input: &str) -> u64 {
         while *input.as_slice().get_unchecked(0) == b' ' {
             input = input.as_slice().get_unchecked(1..).iter();
             let mut n = input.as_slice().get_unchecked(0).wrapping_sub(b'0') as u32;
-            let mut len = 1;
+            let mut pow10idx = 0;
             loop {
                 input = input.as_slice().get_unchecked(1..).iter();
                 let d = input.as_slice().get_unchecked(0).wrapping_sub(b'0');
                 if d >= 10 {
-                    *buf.get_unchecked_mut(buf_len) = (n, len);
+                    *buf.get_unchecked_mut(buf_len) = (n, pow10idx);
                     buf_len += 1;
                     break;
                 }
                 n = 10 * n + d as u32;
-                len += 1;
+                pow10idx += 1;
             }
         }
         input = input.as_slice().get_unchecked(1..).iter();
 
         unsafe fn solve_rec(goal: u64, nums: &[(u32, u32)]) -> bool {
-            if nums.len() == 1 {
-                return goal == nums.get_unchecked(0).0 as u64;
-            }
-
             let (n, l) = *nums.get_unchecked(nums.len() - 1);
             let (n, l) = (n as u64, l as usize);
-            let rest = nums.get_unchecked(..nums.len() - 1);
 
-            static LUT: [u64; 10] = {
-                let mut lut = [0; 10];
-                let mut acc = 1;
-                let mut i = 0;
-                while i < 10 {
-                    lut[i] = acc;
-                    acc *= 10;
-                    i += 1;
-                }
-                lut
-            };
-            let pow10 = LUT.get_unchecked(l);
-
-            std::hint::assert_unchecked(n != 0);
+            if nums.len() == 1 {
+                return goal == n;
+            }
 
             if goal < n {
                 return false;
             }
 
-            if (goal - n) % pow10 == 0 && solve_rec((goal - n) / pow10, rest) {
+            let rest = nums.get_unchecked(..nums.len() - 1);
+
+            let pow10 = *[10, 100, 1000].get_unchecked(l);
+            std::hint::assert_unchecked(pow10 != 0);
+            let sub = goal - n;
+            let (div, rem) = (sub / pow10, sub % pow10);
+            if rem == 0 && solve_rec(div, rest) {
                 return true;
             }
 
-            if goal % n == 0 && solve_rec(goal / n, rest) {
+            std::hint::assert_unchecked(n != 0);
+            let (div, rem) = (goal / n, goal % n);
+            if rem == 0 && solve_rec(div, rest) {
                 return true;
             }
 
