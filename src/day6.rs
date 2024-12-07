@@ -99,7 +99,7 @@ unsafe fn inner_part1(input: &str) -> u32 {
 
         loop {
             let next = pos.wrapping_add(-1isize as usize);
-            if next % 130 == 131 {
+            if next % 131 == 130 {
                 return seen_count;
             }
 
@@ -450,7 +450,7 @@ unsafe fn inner_part2(input: &str) -> u32 {
 
         loop {
             let next = pos.wrapping_add(-1isize as usize);
-            if next % 130 == 131 {
+            if next % 131 == 130 {
                 return count;
             }
 
