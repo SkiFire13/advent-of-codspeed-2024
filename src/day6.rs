@@ -35,6 +35,8 @@ unsafe fn inner_part1(input: &str) -> u32 {
     let mut seen = [0u64; (130 * 131 + 63) / 64];
     let mut seen_count = 0;
     let mut pos = start;
+    seen[pos / 64] |= 1 << (pos % 64);
+    seen_count += 1;
     loop {
         loop {
             let next = pos.wrapping_add(-131isize as usize);
@@ -50,8 +52,6 @@ unsafe fn inner_part1(input: &str) -> u32 {
 
             let seen_elem = seen.get_unchecked_mut(pos / 64);
             let seen_mask = 1 << (pos % 64);
-            // seen_count += ((*seen_elem & seen_mask) >> (pos % 64)) as u32 ^ 1;
-            // *seen_elem |= seen_mask;
             if *seen_elem & seen_mask == 0 {
                 *seen_elem |= seen_mask;
                 seen_count += 1;
