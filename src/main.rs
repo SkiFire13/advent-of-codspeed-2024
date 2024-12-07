@@ -1,11 +1,11 @@
 fn bench<D: std::fmt::Display>(mut f: impl FnMut() -> D) {
-    if !cfg!(debug_assertions) {
-        f();
+    let n = if cfg!(debug_assertions) { 1 } else { 100 };
+    let now = std::time::Instant::now();
+    for _ in 0..n - 1 {
         f();
     }
-    let now = std::time::Instant::now();
     let sol = f();
-    println!("Took: {:?}", now.elapsed());
+    println!("Took: {:?}", now.elapsed() / n);
     println!("Solution: {sol}");
 }
 
