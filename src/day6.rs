@@ -284,7 +284,7 @@ unsafe fn inner_part2(input: &str) -> u32 {
 
             if rocks.get_unchecked(next1).y() != y {
                 // Line 1 has no rocks left
-                while rocks.get_unchecked(next2).y() == y + 1 {
+                while next2 < rocks.len() && rocks.get_unchecked(next2).y() == y + 1 {
                     *move_map.get_unchecked_mut((next2 << 2) | TOP_M) = (curr1 << 2) | RIGHT_M;
                     next2 += 1;
                 }
@@ -334,7 +334,7 @@ unsafe fn inner_part2(input: &str) -> u32 {
 
             if rocksx.get_unchecked(next1).x() != x {
                 // Line 1 has no rocks left
-                while rocksx.get_unchecked(next2).x() == x + 1 {
+                while next2 < rocksx.len() && rocksx.get_unchecked(next2).x() == x + 1 {
                     let next2i = rocksx.get_unchecked(next2).idx();
                     *move_map.get_unchecked_mut((next2i << 2) | LEFT_M) =
                         (out_rock_idx << 2) | TOP_M;
@@ -365,9 +365,10 @@ unsafe fn inner_part2(input: &str) -> u32 {
         rocksx[rocksx.partition_point(|&r| r < RockXY::new(startx as _, starty as _, 0)) - 1].idx();
 
     let mut count = 0;
-    let mut seen = [0u64; (130 * 131 + 63) / 64];
     let mut pos = start as usize;
     let rock_pos = (rocks[rock].y()) as usize * 131 + rocks[rock].x() as usize;
+    let mut seen = [0u64; (130 * 131 + 63) / 64];
+    seen[pos % 64] |= 1 << (pos % 64);
 
     loop {
         let next = pos - 131;
@@ -527,7 +528,7 @@ unsafe fn inner_part2(input: &str) -> u32 {
             }
         }
         let (mut bot_idx, mut bot_old) = (usize::MAX, usize::MAX);
-        if new_y != 130 {
+        if new_y != 130 - 1 {
             let mut idx = rocks.partition_point(|&r| r <= RockYX::new(new_x, new_y + 1));
             if idx != rocks.len() && rocks.get_unchecked(idx).y() == new_y + 1 {
                 *move_map.get_unchecked_mut((new_rock_idx << 2) | BOT_M) = (idx << 2) | LEFT_M;
@@ -538,7 +539,7 @@ unsafe fn inner_part2(input: &str) -> u32 {
                     loop {
                         *move_map.get_unchecked_mut((idx << 2) | TOP_M) =
                             (new_rock_idx << 2) | RIGHT_M;
-                        if idx == rocks.len()
+                        if idx == rocks.len() - 1
                             || rocks.get_unchecked(idx + 1).y() != new_y + 1
                             || *move_map.get_unchecked(((idx + 1) << 2) | TOP_M) != prev_move
                         {
@@ -566,7 +567,7 @@ unsafe fn inner_part2(input: &str) -> u32 {
                     loop {
                         *move_map.get_unchecked_mut((ridx << 2) | RIGHT_M) =
                             (new_rock_idx << 2) | BOT_M;
-                        if idx == rocks.len()
+                        if idx == rocks.len() - 1
                             || rocksx.get_unchecked(idx + 1).x() != new_x - 1
                             || *move_map
                                 .get_unchecked((rocksx.get_unchecked(idx + 1).idx() << 2) | RIGHT_M)
@@ -585,7 +586,7 @@ unsafe fn inner_part2(input: &str) -> u32 {
             }
         }
         let (mut right_idx, mut right_old) = (usize::MAX, usize::MAX);
-        if new_x != 130 {
+        if new_x != 130 - 1 {
             let mut idx = rocksx.partition_point(|&r| r <= RockXY::new(new_x + 1, new_y, 0));
             if idx != 0 && rocksx.get_unchecked(idx - 1).x() == new_x + 1 {
                 idx -= 1;
