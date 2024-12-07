@@ -356,16 +356,7 @@ unsafe fn inner_part2(input: &str) -> u32 {
         }
     }
 
-    let startx = start % 131;
-    let starty = start / 131;
     let mut pos = start as usize;
-
-    let rockx_idx = rocksx_id[startx as usize][..rocksx_len[startx as usize]]
-        .partition_point(|&id| rocks_y[id as usize] as (u32) < starty)
-        - 1;
-    let rock_id = rocksx_id[startx as usize][rockx_idx as usize];
-    let rock_pos = rocks_y[rock_id as usize] as usize * 131 + startx as usize;
-
     let mut count = 0;
     let mut seen = [0u64; (130 * 131 + 63) / 64];
     seen[pos % 64] |= 1 << (pos % 64);
@@ -388,22 +379,28 @@ unsafe fn inner_part2(input: &str) -> u32 {
     }
 
     loop {
-        let next = pos - 131;
-        if next == rock_pos {
-            break;
+        loop {
+            let next = pos.wrapping_add(-131isize as usize);
+            if next >= 131 * 130 {
+                return count;
+            }
+
+            if *input.get_unchecked(next) == b'#' {
+                break;
+            }
+
+            pos = next;
+
+            let seen_elem = seen.get_unchecked_mut(pos / 64);
+            let seen_mask = 1 << (pos % 64);
+            if *seen_elem & seen_mask == 0 {
+                *seen_elem |= seen_mask;
+                if check_loop!(BOT_M) {
+                    count += 1;
+                }
+            }
         }
 
-        pos = next;
-
-        let seen_elem = seen.get_unchecked_mut(pos / 64);
-        let seen_mask = 1 << (pos % 64);
-        *seen_elem |= seen_mask;
-        if check_loop!(BOT_M) {
-            count += 1;
-        }
-    }
-
-    loop {
         loop {
             let next = pos.wrapping_add(1 as usize);
             if next % 131 == 130 {
@@ -465,28 +462,6 @@ unsafe fn inner_part2(input: &str) -> u32 {
             if *seen_elem & seen_mask == 0 {
                 *seen_elem |= seen_mask;
                 if check_loop!(RIGHT_M) {
-                    count += 1;
-                }
-            }
-        }
-
-        loop {
-            let next = pos.wrapping_add(-131isize as usize);
-            if next >= 131 * 130 {
-                return count;
-            }
-
-            if *input.get_unchecked(next) == b'#' {
-                break;
-            }
-
-            pos = next;
-
-            let seen_elem = seen.get_unchecked_mut(pos / 64);
-            let seen_mask = 1 << (pos % 64);
-            if *seen_elem & seen_mask == 0 {
-                *seen_elem |= seen_mask;
-                if check_loop!(BOT_M) {
                     count += 1;
                 }
             }
