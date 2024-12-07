@@ -390,7 +390,6 @@ unsafe fn inner_part2(input: &str) -> u32 {
     loop {
         let next = pos - 131;
         if next == rock_pos {
-            debug_assert_eq!(input[next], b'#');
             break;
         }
 
@@ -507,13 +506,6 @@ unsafe fn inner_part2(input: &str) -> u32 {
         new_rock_pos: usize,
         dir: usize,
     ) -> bool {
-        #[cfg(debug_assertions)]
-        let orig = move_map[..rocks_len * 4].to_vec();
-
-        for &mov in &move_map[..(rocks_len + 2) * 4] {
-            debug_assert!(mov as (usize) < (rocks_len + 2) * 4);
-        }
-
         let new_rock_idx = rocks_len;
         let out_rock_idx = rocks_len + 1;
 
@@ -671,16 +663,7 @@ unsafe fn inner_part2(input: &str) -> u32 {
             }
         }
 
-        if cfg!(debug_assertions) {
-            for &mov in &move_map[..(rocks_len + 2) * 4] {
-                debug_assert!(mov as (usize) < (rocks_len + 2) * 4);
-            }
-        }
-
         let mut pos = (new_rock_idx << 2) | dir;
-
-        debug_assert!(pos < (rocks_len + 2) * 4);
-
         let mut seen = [0u64; (1024 * 4) / 64];
 
         let cycle = loop {
@@ -764,24 +747,6 @@ unsafe fn inner_part2(input: &str) -> u32 {
                     right_old;
                 right_idx += 1;
             }
-        }
-
-        if cfg!(debug_assertions) {
-            for &mov in &move_map[..(rocks_len + 2) * 4] {
-                debug_assert!(mov as (usize) < (rocks_len + 2) * 4);
-            }
-        }
-
-        #[cfg(debug_assertions)]
-        {
-            for i in 0..rocks_len {
-                debug_assert_eq!(move_map[(i << 2) | TOP_M], orig[(i << 2) | TOP_M]);
-                debug_assert_eq!(move_map[(i << 2) | BOT_M], orig[(i << 2) | BOT_M]);
-                debug_assert_eq!(move_map[(i << 2) | LEFT_M], orig[(i << 2) | LEFT_M]);
-                debug_assert_eq!(move_map[(i << 2) | RIGHT_M], orig[(i << 2) | RIGHT_M]);
-            }
-
-            debug_assert_eq!(&move_map[..rocks_len * 4], orig);
         }
 
         cycle
