@@ -382,7 +382,7 @@ unsafe fn inner_part2(input: &str) -> u32 {
         let seen_elem = seen.get_unchecked_mut(pos / 64);
         let seen_mask = 1 << (pos % 64);
         *seen_elem |= seen_mask;
-        if check_loop::<true>(rocks, rocksx, move_map, rock, pos) {
+        if check_loop(rocks, rocksx, move_map, pos, BOT_M) {
             count += 1;
         }
     }
@@ -404,7 +404,7 @@ unsafe fn inner_part2(input: &str) -> u32 {
             let seen_mask = 1 << (pos % 64);
             if *seen_elem & seen_mask == 0 {
                 *seen_elem |= seen_mask;
-                if check_loop::<false>(rocks, rocksx, move_map, rock, pos) {
+                if check_loop(rocks, rocksx, move_map, pos, LEFT_M) {
                     count += 1;
                 }
             }
@@ -426,7 +426,7 @@ unsafe fn inner_part2(input: &str) -> u32 {
             let seen_mask = 1 << (pos % 64);
             if *seen_elem & seen_mask == 0 {
                 *seen_elem |= seen_mask;
-                if check_loop::<false>(rocks, rocksx, move_map, rock, pos) {
+                if check_loop(rocks, rocksx, move_map, pos, TOP_M) {
                     count += 1;
                 }
             }
@@ -448,7 +448,7 @@ unsafe fn inner_part2(input: &str) -> u32 {
             let seen_mask = 1 << (pos % 64);
             if *seen_elem & seen_mask == 0 {
                 *seen_elem |= seen_mask;
-                if check_loop::<false>(rocks, rocksx, move_map, rock, pos) {
+                if check_loop(rocks, rocksx, move_map, pos, RIGHT_M) {
                     count += 1;
                 }
             }
@@ -470,7 +470,7 @@ unsafe fn inner_part2(input: &str) -> u32 {
             let seen_mask = 1 << (pos % 64);
             if *seen_elem & seen_mask == 0 {
                 *seen_elem |= seen_mask;
-                if check_loop::<false>(rocks, rocksx, move_map, rock, pos) {
+                if check_loop(rocks, rocksx, move_map, pos, BOT_M) {
                     count += 1;
                 }
             }
@@ -478,12 +478,12 @@ unsafe fn inner_part2(input: &str) -> u32 {
     }
 
     #[inline(always)]
-    unsafe fn check_loop<const FIRST: bool>(
+    unsafe fn check_loop(
         rocks: &[RockYX],
         rocksx: &[RockXY],
         move_map: &mut [usize],
-        rock: usize,
         new_rock_pos: usize,
+        dir: usize,
     ) -> bool {
         let orig = move_map[..rocks.len() * 4].to_vec();
 
@@ -618,12 +618,13 @@ unsafe fn inner_part2(input: &str) -> u32 {
             }
         }
 
-        for &mov in &move_map[..(rocks.len() + 2) * 4] {
-            debug_assert!(mov < (rocks.len() + 2) * 4);
+        if cfg!(debug_assertions) {
+            for &mov in &move_map[..(rocks.len() + 2) * 4] {
+                debug_assert!(mov < (rocks.len() + 2) * 4);
+            }
         }
 
-        let start_rock = if FIRST { new_rock_idx } else { rock };
-        let mut pos = (start_rock << 2) | BOT_M;
+        let mut pos = (new_rock_idx << 2) | dir;
 
         debug_assert!(pos < (rocks.len() + 2) * 4);
 
@@ -679,8 +680,10 @@ unsafe fn inner_part2(input: &str) -> u32 {
             }
         }
 
-        for &mov in &move_map[..(rocks.len() + 2) * 4] {
-            debug_assert!(mov < (rocks.len() + 2) * 4);
+        if cfg!(debug_assertions) {
+            for &mov in &move_map[..(rocks.len() + 2) * 4] {
+                debug_assert!(mov < (rocks.len() + 2) * 4);
+            }
         }
 
         debug_assert_eq!(&move_map[..rocks.len() * 4], orig);
