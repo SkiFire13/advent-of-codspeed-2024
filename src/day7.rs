@@ -32,12 +32,12 @@ unsafe fn inner_part1(input: &str) -> u64 {
         let goal =
             atoi_radix10::parse::<u64>(input.as_slice().get_unchecked(..len)).unwrap_unchecked();
 
-        let mut buf = [0; 24];
+        let mut buf = [0; 16];
         let mut buf_len = 0;
         input = input.as_slice().get_unchecked(len + 1..).iter();
         while *input.as_slice().get_unchecked(0) == b' ' {
             input = input.as_slice().get_unchecked(1..).iter();
-            let mut n = input.as_slice().get_unchecked(0).wrapping_sub(b'0') as u64;
+            let mut n = input.as_slice().get_unchecked(0).wrapping_sub(b'0') as u32;
             loop {
                 input = input.as_slice().get_unchecked(1..).iter();
                 let d = input.as_slice().get_unchecked(0).wrapping_sub(b'0');
@@ -46,12 +46,12 @@ unsafe fn inner_part1(input: &str) -> u64 {
                     buf_len += 1;
                     break;
                 }
-                n = 10 * n + d as u64;
+                n = 10 * n + d as u32;
             }
         }
         input = input.as_slice().get_unchecked(1..).iter();
 
-        unsafe fn solve_rec(goal: u64, nums: &[u64]) -> bool {
+        unsafe fn solve_rec(goal: u64, nums: &[u32]) -> bool {
             let n = *nums.get_unchecked(nums.len() - 1) as u64;
 
             if nums.len() == 1 {
@@ -92,7 +92,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
         let goal =
             atoi_radix10::parse::<u64>(input.as_slice().get_unchecked(..len)).unwrap_unchecked();
 
-        let mut buf = const { [(0, 0); 24] };
+        let mut buf = const { [(0, 0); 16] };
         let mut buf_len = 0;
         input = input.as_slice().get_unchecked(len + 1..).iter();
         while *input.as_slice().get_unchecked(0) == b' ' {
