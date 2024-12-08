@@ -123,19 +123,20 @@ unsafe fn inner_part2(input: &str) -> u64 {
             for j in i + 1..len {
                 let (xj, yj) = positions.get_unchecked(j).assume_init();
                 let (dx, dy) = (xj.wrapping_sub(xi), yj.wrapping_sub(yi));
+                let di = dy as usize * 64 + dx as usize;
 
-                let (mut xa, mut ya) = (xi, yi);
-                while xa < 50 && ya < 50 {
-                    count += !marked.get_unchecked((xa as usize * 64) + ya as usize) as u64;
-                    *marked.get_unchecked_mut((xa as usize * 64) + ya as usize) = true;
-                    (xa, ya) = (xa.wrapping_sub(dx), ya.wrapping_sub(dy));
+                let (mut ia, mut xa) = ((xi as usize * 64) + yi as usize, xi);
+                while ia < 64 * 50 && xa < 50 {
+                    count += !marked.get_unchecked(ia) as u64;
+                    *marked.get_unchecked_mut(ia) = true;
+                    (ia, xa) = (ia.wrapping_sub(di), xa.wrapping_sub(dx));
                 }
 
-                let (mut xa, mut ya) = (xj, yj);
-                while xa < 50 && ya < 50 {
-                    count += !marked.get_unchecked((xa as usize * 64) + ya as usize) as u64;
-                    *marked.get_unchecked_mut((xa as usize * 64) + ya as usize) = true;
-                    (xa, ya) = (xa.wrapping_add(dx), ya.wrapping_add(dy));
+                let (mut ia, mut xa) = ((xj as usize * 64) + yj as usize, xj);
+                while ia < 64 * 50 && xa < 50 {
+                    count += !marked.get_unchecked(ia) as u64;
+                    *marked.get_unchecked_mut(ia) = true;
+                    (ia, xa) = (ia.wrapping_add(di), xa.wrapping_add(dx));
                 }
             }
         }
