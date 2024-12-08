@@ -3,6 +3,7 @@
 #![feature(avx512_target_feature)]
 #![feature(slice_ptr_get)]
 
+use std::mem::MaybeUninit;
 use std::simd::prelude::*;
 
 pub fn run(input: &str) -> i64 {
@@ -21,7 +22,7 @@ pub fn part2(input: &str) -> u64 {
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part1(input: &str) -> u64 {
     let input = input.as_bytes();
-    let mut positions = [[(0u8, 0u8); 4]; 128];
+    let mut positions = [[MaybeUninit::<(u8, u8)>::uninit(); 4]; 128];
     let mut lengths = [0; 128];
 
     let mut marked = [false; 64 * 50];
@@ -51,7 +52,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
             let poss = positions.get_unchecked_mut(b as usize);
             let (xi, yi) = (x as u8, y as u8);
             for j in 0..*len {
-                let (xj, yj) = *poss.get_unchecked(j);
+                let (xj, yj) = poss.get_unchecked(j).assume_init();
                 let (dx, dy) = (xj.wrapping_sub(xi), yj.wrapping_sub(yi));
 
                 let (xa, ya) = (xi.wrapping_sub(dx), yi.wrapping_sub(dy));
@@ -67,7 +68,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
                 }
             }
 
-            *poss.get_unchecked_mut(*len) = (x as u8, y as u8);
+            *poss.get_unchecked_mut(*len) = MaybeUninit::new((x as u8, y as u8));
             *len += 1;
         }
 
