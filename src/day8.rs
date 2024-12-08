@@ -7,7 +7,7 @@ use std::mem::MaybeUninit;
 use std::simd::prelude::*;
 
 pub fn run(input: &str) -> i64 {
-    part2(input) as i64
+    part1(input) as i64
 }
 
 pub fn part1(input: &str) -> u64 {
@@ -50,26 +50,25 @@ unsafe fn inner_part1(input: &str) -> u64 {
             let b = *input.get_unchecked(offset + x as usize);
             let len = lengths.get_unchecked_mut(b as usize);
             let poss = positions.get_unchecked_mut(b as usize);
-            let (xi, yi) = (x as u32, y as u32);
-            for j in 0..*len {
-                let (xj, yj) = poss.get_unchecked(j).assume_init();
-                let (dx, dy) = (xj.wrapping_sub(xi), yj.wrapping_sub(yi));
+            *poss.get_unchecked_mut(*len) = MaybeUninit::new((x as u32, y as u32));
+            *len += 1;
 
-                let (xa, ya) = (xi.wrapping_sub(dx), yi.wrapping_sub(dy));
+            let (xi, yi) = (x as u32, y as u32);
+            for j in 0..*len - 1 {
+                let (xj, yj) = poss.get_unchecked(j).assume_init();
+
+                let (xa, ya) = ((2 * xi).wrapping_sub(xj), (2 * yi).wrapping_sub(yj));
                 if xa < 50 && ya < 50 {
                     count += *marked.get_unchecked((xa as usize * 64) + ya as usize) as u64;
                     *marked.get_unchecked_mut((xa as usize * 64) + ya as usize) = 0;
                 }
 
-                let (xa, ya) = (xj.wrapping_add(dx), yj.wrapping_add(dy));
+                let (xa, ya) = ((2 * xj).wrapping_sub(xi), (2 * yj).wrapping_sub(yi));
                 if xa < 50 && ya < 50 {
                     count += *marked.get_unchecked((xa as usize * 64) + ya as usize) as u64;
                     *marked.get_unchecked_mut((xa as usize * 64) + ya as usize) = 0;
                 }
             }
-
-            *poss.get_unchecked_mut(*len) = MaybeUninit::new((x as u32, y as u32));
-            *len += 1;
         }
 
         y += 1;
