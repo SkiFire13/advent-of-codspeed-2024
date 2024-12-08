@@ -6,7 +6,7 @@
 use std::simd::prelude::*;
 
 pub fn run(input: &str) -> i64 {
-    part1(input) as i64
+    part2(input) as i64
 }
 
 pub fn part1(input: &str) -> u64 {
@@ -48,16 +48,20 @@ pub unsafe fn parse1(
     while *input.as_slice().get_unchecked(0) == b' ' {
         *input = input.as_slice().get_unchecked(1..).iter();
         let mut n = input.as_slice().get_unchecked(0).wrapping_sub(b'0') as u32;
-        loop {
+
+        *input = input.as_slice().get_unchecked(1..).iter();
+        let d = input.as_slice().get_unchecked(0).wrapping_sub(b'0');
+        if d < 10 {
+            n = 10 * n + d as u32;
             *input = input.as_slice().get_unchecked(1..).iter();
             let d = input.as_slice().get_unchecked(0).wrapping_sub(b'0');
-            if d >= 10 {
-                *buf.get_unchecked_mut(*buf_len) = n;
-                *buf_len += 1;
-                break;
+            if d < 10 {
+                n = 10 * n + d as u32;
+                *input = input.as_slice().get_unchecked(1..).iter();
             }
-            n = 10 * n + d as u32;
         }
+        *buf.get_unchecked_mut(*buf_len) = n;
+        *buf_len += 1;
     }
     *input = input.as_slice().get_unchecked(1..).iter();
 
@@ -69,9 +73,13 @@ pub unsafe fn parse1(
 unsafe fn inner_part1(input: &str) -> u64 {
     let mut tot = 0;
 
+    let mut max = [0; 16];
     let mut buf = [0; 16];
     let mut buf_len = 0;
     let mut goal = 0;
+
+    let mut stack = [(0, 0); 32];
+    let mut stack_len;
 
     let mut input = input.as_bytes().iter();
     loop {
@@ -79,41 +87,56 @@ unsafe fn inner_part1(input: &str) -> u64 {
             break;
         }
 
-        let mut max = if buf[0] == 1 || buf[1] == 1 {
-            buf[0] as u64 + buf[1] as u64
-        } else {
-            buf[0] as u64 * buf[1] as u64
-        };
+        let (add, mul) = (buf[0] + buf[1], buf[0] * buf[1]);
+        max[0] = buf[0] as u64;
+        max[1] = std::cmp::max(add, mul) as u64;
+        let min2 = std::cmp::min(add, mul) as u64;
         for i in 2..buf_len {
-            if *buf.get_unchecked(i) == 1 {
-                max += 1;
-            } else {
-                max *= *buf.get_unchecked(i) as u64;
-            }
+            *max.get_unchecked_mut(i) = std::cmp::max(
+                *max.get_unchecked(i - 1) + 1,
+                *max.get_unchecked(i - 1) * *buf.get_unchecked(i) as u64,
+            );
         }
 
-        if goal >= max {
-            if goal == max {
-                tot += goal;
+        stack[0] = (goal, buf_len - 1);
+        stack_len = 1;
+
+        'outer: while stack_len != 0 {
+            let (mut local_goal, mut i) = *stack.get_unchecked(stack_len - 1);
+            stack_len -= 1;
+
+            loop {
+                if local_goal >= *max.get_unchecked(i) {
+                    if local_goal == *max.get_unchecked(i) {
+                        tot += goal;
+                        break 'outer;
+                    }
+                    continue 'outer;
+                }
+
+                if i == 1 {
+                    if local_goal == min2 {
+                        tot += goal;
+                        break 'outer;
+                    }
+                    continue 'outer;
+                }
+
+                let n = *buf.get_unchecked(i) as u64;
+                std::hint::assert_unchecked(n != 0);
+
+                if local_goal.wrapping_sub(n) <= *max.get_unchecked(i - 1) {
+                    *stack.get_unchecked_mut(stack_len) = (local_goal - n, i - 1);
+                    stack_len += 1;
+                }
+
+                if local_goal % n == 0 {
+                    local_goal /= n;
+                    i -= 1;
+                } else {
+                    break;
+                }
             }
-            continue;
-        }
-
-        unsafe fn solve_rec(goal: u64, nums: &[u32]) -> bool {
-            let n = *nums.get_unchecked(nums.len() - 1) as u64;
-
-            if nums.len() == 1 {
-                return goal == n;
-            }
-
-            let rest = nums.get_unchecked(..nums.len() - 1);
-
-            std::hint::assert_unchecked(n != 0);
-            (goal % n == 0 && solve_rec(goal / n, rest)) || (goal > n && solve_rec(goal - n, rest))
-        }
-
-        if solve_rec(goal, &buf.get_unchecked(..buf_len)) {
-            tot += goal;
         }
     }
 
@@ -152,17 +175,22 @@ pub unsafe fn parse2(
         *input = input.as_slice().get_unchecked(1..).iter();
         let mut n = input.as_slice().get_unchecked(0).wrapping_sub(b'0') as u32;
         let mut pow10idx = 0;
-        loop {
+
+        *input = input.as_slice().get_unchecked(1..).iter();
+        let d = input.as_slice().get_unchecked(0).wrapping_sub(b'0');
+        if d < 10 {
+            n = 10 * n + d as u32;
+            pow10idx = 1;
             *input = input.as_slice().get_unchecked(1..).iter();
             let d = input.as_slice().get_unchecked(0).wrapping_sub(b'0');
-            if d >= 10 {
-                *buf.get_unchecked_mut(*buf_len) = (n, pow10idx);
-                *buf_len += 1;
-                break;
+            if d < 10 {
+                n = 10 * n + d as u32;
+                pow10idx = 2;
+                *input = input.as_slice().get_unchecked(1..).iter();
             }
-            n = 10 * n + d as u32;
-            pow10idx += 1;
         }
+        *buf.get_unchecked_mut(*buf_len) = (n, pow10idx);
+        *buf_len += 1;
     }
     *input = input.as_slice().get_unchecked(1..).iter();
 
@@ -174,9 +202,13 @@ pub unsafe fn parse2(
 unsafe fn inner_part2(input: &str) -> u64 {
     let mut tot = 0;
 
-    let mut buf = const { [(0, 0); 16] };
+    let mut max = [0; 16];
+    let mut buf = [(0, 0); 16];
     let mut buf_len = 0;
     let mut goal = 0;
+
+    let mut stack = [(0, 0); 32];
+    let mut stack_len;
 
     let mut input = input.as_bytes().iter();
     loop {
@@ -184,45 +216,69 @@ unsafe fn inner_part2(input: &str) -> u64 {
             break;
         }
 
-        unsafe fn solve_rec(goal: u64, nums: &[(u32, u32)]) -> bool {
-            let (n, l) = *nums.get_unchecked(nums.len() - 1);
-            let (n, l) = (n as u64, l as usize);
-
-            if nums.len() == 1 {
-                return goal == n;
-            }
-
-            if goal < n {
-                return false;
-            }
-
-            let rest = nums.get_unchecked(..nums.len() - 1);
-
-            use fastdiv::PrecomputedDivU64;
-            static LUT: [PrecomputedDivU64; 3] = [
-                PrecomputedDivU64::new(10),
-                PrecomputedDivU64::new(100),
-                PrecomputedDivU64::new(1000),
-            ];
-            let pow10 = *LUT.get_unchecked(l);
-            let sub = goal - n;
-            if PrecomputedDivU64::is_multiple_of(sub, pow10)
-                && solve_rec(PrecomputedDivU64::fast_div(sub, pow10), rest)
-            {
-                return true;
-            }
-
-            std::hint::assert_unchecked(n != 0);
-            let (div, rem) = (goal / n, goal % n);
-            if rem == 0 && solve_rec(div, rest) {
-                return true;
-            }
-
-            solve_rec(goal - n, rest)
+        max[0] = buf[0].0 as u64;
+        for i in 1..buf_len {
+            static LUT: [u64; 3] = [10, 100, 1000];
+            let (n, l) = *buf.get_unchecked(i);
+            let pow10 = *LUT.get_unchecked(l as usize);
+            *max.get_unchecked_mut(i) = *max.get_unchecked(i - 1) * pow10 + n as u64;
         }
+        let a2 = (buf[0].0 + buf[1].0) as u64;
+        let m2 = (buf[0].0 * buf[1].0) as u64;
 
-        if solve_rec(goal, &buf.get_unchecked(..buf_len)) {
-            tot += goal;
+        stack[0] = (goal, buf_len - 1);
+        stack_len = 1;
+
+        'outer: while stack_len > 0 {
+            let (mut local_goal, mut i) = *stack.get_unchecked(stack_len - 1);
+            stack_len -= 1;
+
+            loop {
+                if local_goal >= *max.get_unchecked(i) {
+                    if local_goal == *max.get_unchecked(i) {
+                        tot += goal;
+                        break 'outer;
+                    }
+                    continue 'outer;
+                }
+
+                if i == 1 {
+                    if local_goal == a2 || local_goal == m2 {
+                        tot += goal;
+                        break 'outer;
+                    }
+                    continue 'outer;
+                }
+
+                let (n, l) = *buf.get_unchecked(i);
+                let (n, l) = (n as u64, l as usize);
+                std::hint::assert_unchecked(n != 0);
+
+                if local_goal.wrapping_sub(n) <= *max.get_unchecked(i - 1) {
+                    *stack.get_unchecked_mut(stack_len) = (local_goal - n, i - 1);
+                    stack_len += 1;
+                }
+
+                use fastdiv::PrecomputedDivU64;
+                static LUT: [PrecomputedDivU64; 3] = [
+                    PrecomputedDivU64::new(10),
+                    PrecomputedDivU64::new(100),
+                    PrecomputedDivU64::new(1000),
+                ];
+                let pow10 = *LUT.get_unchecked(l);
+                if local_goal > n && PrecomputedDivU64::is_multiple_of(local_goal - n, pow10) {
+                    *stack.get_unchecked_mut(stack_len) =
+                        (PrecomputedDivU64::fast_div(local_goal - n, pow10), i - 1);
+                    stack_len += 1;
+                }
+
+                if local_goal % n == 0 {
+                    local_goal /= n;
+                    i -= 1;
+                } else {
+                    break;
+                }
+            }
         }
     }
 
