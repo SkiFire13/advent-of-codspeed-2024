@@ -240,8 +240,26 @@ mod fastdiv {
     }
 
     #[inline]
+    const fn divide_128_max_by_64(divisor: u16) -> u128 {
+        let divisor = divisor as u64;
+        let quotient_hi = core::u64::MAX / divisor as u64;
+        let remainder_hi = core::u64::MAX - quotient_hi * divisor;
+        let quotient_lo = {
+            let numerator_mid = (remainder_hi << 32) | core::u32::MAX as u64;
+            let quotient_mid = numerator_mid / divisor;
+            let remainder_mid = numerator_mid - quotient_mid * divisor;
+
+            let numerator_lo = (remainder_mid << 32) | core::u32::MAX as u64;
+            let quotient_lo = numerator_lo / divisor;
+
+            (quotient_mid << 32) | quotient_lo
+        };
+        ((quotient_hi as u128) << 64) | (quotient_lo as u128)
+    }
+
+    #[inline]
     const fn compute_m_u64(d: u64) -> u128 {
-        (0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF / d as u128) + 1
+        divide_128_max_by_64(d as u16) + 1
     }
     // for d > 1
     #[inline]
