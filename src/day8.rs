@@ -22,7 +22,7 @@ pub fn part2(input: &str) -> u64 {
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part1(input: &str) -> u64 {
     let input = input.as_bytes();
-    let mut positions = [[MaybeUninit::<(u8, u8)>::uninit(); 4]; 128];
+    let mut positions = [[MaybeUninit::<(u32, u32)>::uninit(); 4]; 128];
     let mut lengths = [0; 128];
 
     let mut marked = [1u8; 64 * 50];
@@ -50,7 +50,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
             let b = *input.get_unchecked(offset + x as usize);
             let len = lengths.get_unchecked_mut(b as usize);
             let poss = positions.get_unchecked_mut(b as usize);
-            let (xi, yi) = (x as u8, y as u8);
+            let (xi, yi) = (x as u32, y as u32);
             for j in 0..*len {
                 let (xj, yj) = poss.get_unchecked(j).assume_init();
                 let (dx, dy) = (xj.wrapping_sub(xi), yj.wrapping_sub(yi));
@@ -68,7 +68,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
                 }
             }
 
-            *poss.get_unchecked_mut(*len) = MaybeUninit::new((x as u8, y as u8));
+            *poss.get_unchecked_mut(*len) = MaybeUninit::new((x as u32, y as u32));
             *len += 1;
         }
 
@@ -82,7 +82,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part2(input: &str) -> u64 {
     let input = input.as_bytes();
-    let mut positions = [[MaybeUninit::<(u8, u8)>::uninit(); 8]; 128];
+    let mut positions = [[MaybeUninit::<(u32, u32)>::uninit(); 4]; 128];
     let mut lengths = [0; 128];
 
     let mut y = 0;
@@ -107,7 +107,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
             let b = *input.get_unchecked(offset + x as usize);
             let len = lengths.get_unchecked_mut(b as usize);
             let poss = positions.get_unchecked_mut(b as usize);
-            *poss.get_unchecked_mut(*len) = MaybeUninit::new((x as u8, y as u8));
+            *poss.get_unchecked_mut(*len) = MaybeUninit::new((x as u32, y as u32));
             *len += 1;
         }
 
@@ -122,7 +122,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
             for j in i + 1..len {
                 let (xj, yj) = poss.get_unchecked(j).assume_init();
                 let dx = xj.wrapping_sub(xi);
-                let di = ((yj as i8 - yi as i8) as isize * 50 + dx as i8 as isize) as usize;
+                let di = ((yj as isize - yi as isize) * 50 + dx as i32 as isize) as usize;
 
                 let (mut ia, mut xa) = ((yi as usize * 50) + xi as usize, xi);
                 while ia < 50 * 50 && xa < 50 {
