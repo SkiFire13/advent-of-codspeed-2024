@@ -17,40 +17,87 @@ pub fn part2(input: &str) -> u64 {
     unsafe { inner_part2(input) }
 }
 
+#[inline(always)]
+pub unsafe fn parse1(
+    input: &mut std::slice::Iter<u8>,
+    buf: &mut [u32; 16],
+    buf_len: &mut usize,
+    goal: &mut u64,
+) -> bool {
+    if input.as_slice().len() >= 16 {
+        let len = u8x16::from_slice(input.as_slice().get_unchecked(..16))
+            .simd_eq(u8x16::splat(b':'))
+            .first_set()
+            .unwrap_unchecked();
+
+        *goal =
+            atoi_radix10::parse::<u64>(input.as_slice().get_unchecked(..len)).unwrap_unchecked();
+        *input = input.as_slice().get_unchecked(len + 1..).iter();
+    } else if input.as_slice().len() > 0 {
+        let mut acc = 0;
+        while *input.as_slice().get_unchecked(0) != b':' {
+            acc = 10 * acc + (input.as_slice().get_unchecked(0) - b'0') as u64;
+            *input = input.as_slice().get_unchecked(1..).iter();
+        }
+        *input = input.as_slice().get_unchecked(1..).iter();
+    } else {
+        return false;
+    }
+
+    *buf_len = 0;
+    while *input.as_slice().get_unchecked(0) == b' ' {
+        *input = input.as_slice().get_unchecked(1..).iter();
+        let mut n = input.as_slice().get_unchecked(0).wrapping_sub(b'0') as u32;
+        loop {
+            *input = input.as_slice().get_unchecked(1..).iter();
+            let d = input.as_slice().get_unchecked(0).wrapping_sub(b'0');
+            if d >= 10 {
+                *buf.get_unchecked_mut(*buf_len) = n;
+                *buf_len += 1;
+                break;
+            }
+            n = 10 * n + d as u32;
+        }
+    }
+    *input = input.as_slice().get_unchecked(1..).iter();
+
+    true
+}
+
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part1(input: &str) -> u64 {
     let mut tot = 0;
 
     let mut buf = [0; 16];
+    let mut buf_len = 0;
+    let mut goal = 0;
 
     let mut input = input.as_bytes().iter();
-    while !input.as_slice().is_empty() {
-        let len = u8x16::from_slice(input.as_slice().get_unchecked(..16))
-            .simd_eq(u8x16::splat(b':'))
-            .first_set()
-            .unwrap_unchecked();
+    loop {
+        if !parse1(&mut input, &mut buf, &mut buf_len, &mut goal) {
+            break;
+        }
 
-        let goal =
-            atoi_radix10::parse::<u64>(input.as_slice().get_unchecked(..len)).unwrap_unchecked();
-
-        let mut buf_len = 0;
-        input = input.as_slice().get_unchecked(len + 1..).iter();
-        while *input.as_slice().get_unchecked(0) == b' ' {
-            input = input.as_slice().get_unchecked(1..).iter();
-            let mut n = input.as_slice().get_unchecked(0).wrapping_sub(b'0') as u32;
-            loop {
-                input = input.as_slice().get_unchecked(1..).iter();
-                let d = input.as_slice().get_unchecked(0).wrapping_sub(b'0');
-                if d >= 10 {
-                    *buf.get_unchecked_mut(buf_len) = n;
-                    buf_len += 1;
-                    break;
-                }
-                n = 10 * n + d as u32;
+        let mut max = if buf[0] == 1 || buf[1] == 1 {
+            buf[0] as u64 + buf[1] as u64
+        } else {
+            buf[0] as u64 * buf[1] as u64
+        };
+        for i in 2..buf_len {
+            if *buf.get_unchecked(i) == 1 {
+                max += 1;
+            } else {
+                max *= *buf.get_unchecked(i) as u64;
             }
         }
-        input = input.as_slice().get_unchecked(1..).iter();
+
+        if goal >= max {
+            if goal == max {
+                tot += goal;
+            }
+            continue;
+        }
 
         unsafe fn solve_rec(goal: u64, nums: &[u32]) -> bool {
             let n = *nums.get_unchecked(nums.len() - 1) as u64;
@@ -62,12 +109,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
             let rest = nums.get_unchecked(..nums.len() - 1);
 
             std::hint::assert_unchecked(n != 0);
-            let (div, rem) = (goal / n, goal % n);
-            if rem == 0 && solve_rec(div, rest) {
-                return true;
-            }
-
-            goal > n && solve_rec(goal - n, rest)
+            (goal % n == 0 && solve_rec(goal / n, rest)) || (goal > n && solve_rec(goal - n, rest))
         }
 
         if solve_rec(goal, &buf.get_unchecked(..buf_len)) {
@@ -78,41 +120,69 @@ unsafe fn inner_part1(input: &str) -> u64 {
     tot
 }
 
-#[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
-#[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
-unsafe fn inner_part2(input: &str) -> u64 {
-    let mut tot = 0;
-
-    let mut input = input.as_bytes().iter();
-    while !input.as_slice().is_empty() {
+#[inline(always)]
+pub unsafe fn parse2(
+    input: &mut std::slice::Iter<u8>,
+    buf: &mut [(u32, u32); 16],
+    buf_len: &mut usize,
+    goal: &mut u64,
+) -> bool {
+    if input.as_slice().len() >= 16 {
         let len = u8x16::from_slice(input.as_slice().get_unchecked(..16))
             .simd_eq(u8x16::splat(b':'))
             .first_set()
             .unwrap_unchecked();
 
-        let goal =
+        *goal =
             atoi_radix10::parse::<u64>(input.as_slice().get_unchecked(..len)).unwrap_unchecked();
-
-        let mut buf = const { [(0, 0); 16] };
-        let mut buf_len = 0;
-        input = input.as_slice().get_unchecked(len + 1..).iter();
-        while *input.as_slice().get_unchecked(0) == b' ' {
-            input = input.as_slice().get_unchecked(1..).iter();
-            let mut n = input.as_slice().get_unchecked(0).wrapping_sub(b'0') as u32;
-            let mut pow10idx = 0;
-            loop {
-                input = input.as_slice().get_unchecked(1..).iter();
-                let d = input.as_slice().get_unchecked(0).wrapping_sub(b'0');
-                if d >= 10 {
-                    *buf.get_unchecked_mut(buf_len) = (n, pow10idx);
-                    buf_len += 1;
-                    break;
-                }
-                n = 10 * n + d as u32;
-                pow10idx += 1;
-            }
+        *input = input.as_slice().get_unchecked(len + 1..).iter();
+    } else if input.as_slice().len() > 0 {
+        let mut acc = 0;
+        while *input.as_slice().get_unchecked(0) != b':' {
+            acc = 10 * acc + (input.as_slice().get_unchecked(0) - b'0') as u64;
+            *input = input.as_slice().get_unchecked(1..).iter();
         }
-        input = input.as_slice().get_unchecked(1..).iter();
+        *input = input.as_slice().get_unchecked(1..).iter();
+    } else {
+        return false;
+    }
+
+    *buf_len = 0;
+    while *input.as_slice().get_unchecked(0) == b' ' {
+        *input = input.as_slice().get_unchecked(1..).iter();
+        let mut n = input.as_slice().get_unchecked(0).wrapping_sub(b'0') as u32;
+        let mut pow10idx = 0;
+        loop {
+            *input = input.as_slice().get_unchecked(1..).iter();
+            let d = input.as_slice().get_unchecked(0).wrapping_sub(b'0');
+            if d >= 10 {
+                *buf.get_unchecked_mut(*buf_len) = (n, pow10idx);
+                *buf_len += 1;
+                break;
+            }
+            n = 10 * n + d as u32;
+            pow10idx += 1;
+        }
+    }
+    *input = input.as_slice().get_unchecked(1..).iter();
+
+    true
+}
+
+#[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
+#[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
+unsafe fn inner_part2(input: &str) -> u64 {
+    let mut tot = 0;
+
+    let mut buf = const { [(0, 0); 16] };
+    let mut buf_len = 0;
+    let mut goal = 0;
+
+    let mut input = input.as_bytes().iter();
+    loop {
+        if !parse2(&mut input, &mut buf, &mut buf_len, &mut goal) {
+            break;
+        }
 
         unsafe fn solve_rec(goal: u64, nums: &[(u32, u32)]) -> bool {
             let (n, l) = *nums.get_unchecked(nums.len() - 1);
