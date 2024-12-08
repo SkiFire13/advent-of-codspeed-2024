@@ -7,7 +7,7 @@ use std::mem::MaybeUninit;
 use std::simd::prelude::*;
 
 pub fn run(input: &str) -> i64 {
-    part2(input) as i64
+    part1(input) as i64
 }
 
 pub fn part1(input: &str) -> u64 {
@@ -25,7 +25,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
     let mut positions = [[MaybeUninit::<(u8, u8)>::uninit(); 4]; 128];
     let mut lengths = [0; 128];
 
-    let mut marked = [false; 64 * 50];
+    let mut marked = [1u8; 64 * 50];
     let mut count = 0;
 
     let mut y = 0;
@@ -56,15 +56,15 @@ unsafe fn inner_part1(input: &str) -> u64 {
                 let (dx, dy) = (xj.wrapping_sub(xi), yj.wrapping_sub(yi));
 
                 let (xa, ya) = (xi.wrapping_sub(dx), yi.wrapping_sub(dy));
-                if xa < 50 && ya < 50 && !marked.get_unchecked((xa as usize * 64) + ya as usize) {
-                    *marked.get_unchecked_mut((xa as usize * 64) + ya as usize) = true;
-                    count += 1;
+                if xa < 50 && ya < 50 {
+                    count += *marked.get_unchecked((xa as usize * 64) + ya as usize) as u64;
+                    *marked.get_unchecked_mut((xa as usize * 64) + ya as usize) = 0;
                 }
 
                 let (xa, ya) = (xj.wrapping_add(dx), yj.wrapping_add(dy));
-                if xa < 50 && ya < 50 && !marked.get_unchecked((xa as usize * 64) + ya as usize) {
-                    *marked.get_unchecked_mut((xa as usize * 64) + ya as usize) = true;
-                    count += 1;
+                if xa < 50 && ya < 50 {
+                    count += *marked.get_unchecked((xa as usize * 64) + ya as usize) as u64;
+                    *marked.get_unchecked_mut((xa as usize * 64) + ya as usize) = 0;
                 }
             }
 
@@ -114,7 +114,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
         y += 1;
     }
 
-    let mut marked = [false; 64 * 50];
+    let mut marked = [1u8; 64 * 50];
     let mut count = 0;
     for (&len, poss) in std::iter::zip(&lengths, &positions) {
         for i in 0..len {
@@ -126,15 +126,15 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
                 let (mut ia, mut xa) = ((yi as usize * 64) + xi as usize, xi);
                 while ia < 64 * 50 && xa < 50 {
-                    count += !marked.get_unchecked(ia) as u64;
-                    *marked.get_unchecked_mut(ia) = true;
+                    count += *marked.get_unchecked(ia) as u64;
+                    *marked.get_unchecked_mut(ia) = 0;
                     (ia, xa) = (ia.wrapping_sub(di), xa.wrapping_sub(dx));
                 }
 
                 let (mut ia, mut xa) = ((yj as usize * 64) + xj as usize, xj);
                 while ia < 64 * 50 && xa < 50 {
-                    count += !marked.get_unchecked(ia) as u64;
-                    *marked.get_unchecked_mut(ia) = true;
+                    count += *marked.get_unchecked(ia) as u64;
+                    *marked.get_unchecked_mut(ia) = 0;
                     (ia, xa) = (ia.wrapping_add(di), xa.wrapping_add(dx));
                 }
             }
