@@ -3,8 +3,6 @@
 #![feature(avx512_target_feature)]
 #![feature(slice_ptr_get)]
 
-use std::simd::prelude::*;
-
 pub fn run(input: &str) -> i64 {
     part1(input) as i64
 }
@@ -24,18 +22,7 @@ pub unsafe fn parse1(
     buf_len: &mut usize,
     goal: &mut u64,
 ) -> bool {
-    if input.as_slice().len() >= 16 {
-        let len = u8x16::from_slice(input.as_slice().get_unchecked(..16))
-            .simd_eq(u8x16::splat(b':'))
-            .first_set()
-            .unwrap_unchecked();
-
-        *goal = 0;
-        for &b in input.as_slice().get_unchecked(..len) {
-            *goal = 10 * *goal + (b - b'0') as u64;
-        }
-        *input = input.as_slice().get_unchecked(len + 1..).iter();
-    } else if input.as_slice().len() > 0 {
+    if input.as_slice().len() > 0 {
         let mut acc = 0;
         while *input.as_slice().get_unchecked(0) != b':' {
             acc = 10 * acc + (input.as_slice().get_unchecked(0) - b'0') as u64;
@@ -153,17 +140,7 @@ pub unsafe fn parse2(
     buf_len: &mut usize,
     goal: &mut u64,
 ) -> bool {
-    if input.as_slice().len() >= 16 {
-        let len = u8x16::from_slice(input.as_slice().get_unchecked(..16))
-            .simd_eq(u8x16::splat(b':'))
-            .first_set()
-            .unwrap_unchecked();
-        *goal = 0;
-        for &b in input.as_slice().get_unchecked(..len) {
-            *goal = 10 * *goal + (b - b'0') as u64;
-        }
-        *input = input.as_slice().get_unchecked(len + 1..).iter();
-    } else if input.as_slice().len() > 0 {
+    if input.as_slice().len() > 0 {
         let mut acc = 0;
         while *input.as_slice().get_unchecked(0) != b':' {
             acc = 10 * acc + (input.as_slice().get_unchecked(0) - b'0') as u64;
