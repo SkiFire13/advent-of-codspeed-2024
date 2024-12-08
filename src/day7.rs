@@ -22,6 +22,8 @@ pub fn part2(input: &str) -> u64 {
 unsafe fn inner_part1(input: &str) -> u64 {
     let mut tot = 0;
 
+    let mut buf = [0; 16];
+
     let mut input = input.as_bytes().iter();
     while !input.as_slice().is_empty() {
         let len = u8x16::from_slice(input.as_slice().get_unchecked(..16))
@@ -32,7 +34,6 @@ unsafe fn inner_part1(input: &str) -> u64 {
         let goal =
             atoi_radix10::parse::<u64>(input.as_slice().get_unchecked(..len)).unwrap_unchecked();
 
-        let mut buf = [0; 16];
         let mut buf_len = 0;
         input = input.as_slice().get_unchecked(len + 1..).iter();
         while *input.as_slice().get_unchecked(0) == b' ' {
