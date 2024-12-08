@@ -21,8 +21,11 @@ pub fn part2(input: &str) -> u64 {
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part1(input: &str) -> u64 {
     let input = input.as_bytes();
-    let mut positions = [[(0, 0); 8]; 128];
+    let mut positions = [[(0u8, 0u8); 4]; 128];
     let mut lengths = [0; 128];
+
+    let mut marked = [false; 64 * 50];
+    let mut count = 0;
 
     for y in 0..49 {
         let offset = 51 * y;
@@ -35,9 +38,26 @@ unsafe fn inner_part1(input: &str) -> u64 {
 
             let b = *input.get_unchecked(offset + x as usize);
             let len = lengths.get_unchecked_mut(b as usize);
-            *positions
-                .get_unchecked_mut(b as usize)
-                .get_unchecked_mut(*len) = (x as u8, y as u8);
+            let poss = positions.get_unchecked_mut(b as usize);
+            let (xi, yi) = (x as u8, y as u8);
+            for j in 0..*len {
+                let (xj, yj) = *poss.get_unchecked(j);
+                let (dx, dy) = (xj.wrapping_sub(xi), yj.wrapping_sub(yi));
+
+                let (xa, ya) = (xi.wrapping_sub(dx), yi.wrapping_sub(dy));
+                if xa < 50 && ya < 50 && !marked.get_unchecked((xa as usize * 64) + ya as usize) {
+                    *marked.get_unchecked_mut((xa as usize * 64) + ya as usize) = true;
+                    count += 1;
+                }
+
+                let (xa, ya) = (xj.wrapping_add(dx), yj.wrapping_add(dy));
+                if xa < 50 && ya < 50 && !marked.get_unchecked((xa as usize * 64) + ya as usize) {
+                    *marked.get_unchecked_mut((xa as usize * 64) + ya as usize) = true;
+                    count += 1;
+                }
+            }
+
+            *poss.get_unchecked_mut(*len) = (x as u8, y as u8);
             *len += 1;
         }
     }
@@ -53,26 +73,10 @@ unsafe fn inner_part1(input: &str) -> u64 {
 
             let b = *input.get_unchecked(offset + x as usize);
             let len = lengths.get_unchecked_mut(b as usize);
-            *positions
-                .get_unchecked_mut(b as usize)
-                .get_unchecked_mut(*len) = (x as u8, y as u8);
-            *len += 1;
-        }
-    }
-
-    // for (i, (&len, positions)) in std::iter::zip(&lengths, &positions).enumerate() {
-    //     if len != 0 {
-    //         println!("{}: {:?}", i as u8 as char, &positions[..len]);
-    //     }
-    // }
-
-    let mut marked = [false; 64 * 50];
-    let mut count = 0;
-    for (&len, positions) in std::iter::zip(&lengths, &positions) {
-        for i in 0..len {
-            let (xi, yi) = *positions.get_unchecked(i);
-            for j in i + 1..len {
-                let (xj, yj) = *positions.get_unchecked(j);
+            let poss = positions.get_unchecked_mut(b as usize);
+            let (xi, yi) = (x as u8, y as u8);
+            for j in 0..*len {
+                let (xj, yj) = *poss.get_unchecked(j);
                 let (dx, dy) = (xj.wrapping_sub(xi), yj.wrapping_sub(yi));
 
                 let (xa, ya) = (xi.wrapping_sub(dx), yi.wrapping_sub(dy));
@@ -87,6 +91,9 @@ unsafe fn inner_part1(input: &str) -> u64 {
                     count += 1;
                 }
             }
+
+            *poss.get_unchecked_mut(*len) = (x as u8, y as u8);
+            *len += 1;
         }
     }
 
