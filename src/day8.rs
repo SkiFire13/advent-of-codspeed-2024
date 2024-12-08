@@ -7,7 +7,7 @@ use std::mem::MaybeUninit;
 use std::simd::prelude::*;
 
 pub fn run(input: &str) -> i64 {
-    part1(input) as i64
+    part2(input) as i64
 }
 
 pub fn part1(input: &str) -> u64 {
@@ -114,7 +114,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
         y += 1;
     }
 
-    let mut marked = [1u8; 64 * 50];
+    let mut marked = [1u8; 50 * 50];
     let mut count = 0;
     for (&len, poss) in std::iter::zip(&lengths, &positions) {
         for i in 0..len {
@@ -122,17 +122,17 @@ unsafe fn inner_part2(input: &str) -> u64 {
             for j in i + 1..len {
                 let (xj, yj) = poss.get_unchecked(j).assume_init();
                 let dx = xj.wrapping_sub(xi);
-                let di = ((yj as i8 - yi as i8) as isize * 64 + dx as i8 as isize) as usize;
+                let di = ((yj as i8 - yi as i8) as isize * 50 + dx as i8 as isize) as usize;
 
-                let (mut ia, mut xa) = ((yi as usize * 64) + xi as usize, xi);
-                while ia < 64 * 50 && xa < 50 {
+                let (mut ia, mut xa) = ((yi as usize * 50) + xi as usize, xi);
+                while ia < 50 * 50 && xa < 50 {
                     count += *marked.get_unchecked(ia) as u64;
                     *marked.get_unchecked_mut(ia) = 0;
                     (ia, xa) = (ia.wrapping_sub(di), xa.wrapping_sub(dx));
                 }
 
-                let (mut ia, mut xa) = ((yj as usize * 64) + xj as usize, xj);
-                while ia < 64 * 50 && xa < 50 {
+                let (mut ia, mut xa) = ((yj as usize * 50) + xj as usize, xj);
+                while ia < 50 * 50 && xa < 50 {
                     count += *marked.get_unchecked(ia) as u64;
                     *marked.get_unchecked_mut(ia) = 0;
                     (ia, xa) = (ia.wrapping_add(di), xa.wrapping_add(dx));
