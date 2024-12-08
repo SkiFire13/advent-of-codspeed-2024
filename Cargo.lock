@@ -5,11 +5,3 @@ version = 4
 [[package]]
 name = "advent-of-codspeed-2024"
 version = "0.1.0"
-dependencies = [
- "atoi_radix10",
-]
-
-[[package]]
-name = "atoi_radix10"
-version = "0.0.1"
-source = "git+https://github.com/gilescope/atoi_radix10#b1d6e6c1009f0971efebfa55a61b6cb7c0b5d641"

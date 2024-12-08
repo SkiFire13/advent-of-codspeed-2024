@@ -6,7 +6,7 @@
 use std::simd::prelude::*;
 
 pub fn run(input: &str) -> i64 {
-    part2(input) as i64
+    part1(input) as i64
 }
 
 pub fn part1(input: &str) -> u64 {
@@ -30,8 +30,10 @@ pub unsafe fn parse1(
             .first_set()
             .unwrap_unchecked();
 
-        *goal =
-            atoi_radix10::parse::<u64>(input.as_slice().get_unchecked(..len)).unwrap_unchecked();
+        *goal = 0;
+        for &b in input.as_slice().get_unchecked(..len) {
+            *goal = 10 * *goal + (b - b'0') as u64;
+        }
         *input = input.as_slice().get_unchecked(len + 1..).iter();
     } else if input.as_slice().len() > 0 {
         let mut acc = 0;
@@ -155,9 +157,10 @@ pub unsafe fn parse2(
             .simd_eq(u8x16::splat(b':'))
             .first_set()
             .unwrap_unchecked();
-
-        *goal =
-            atoi_radix10::parse::<u64>(input.as_slice().get_unchecked(..len)).unwrap_unchecked();
+        *goal = 0;
+        for &b in input.as_slice().get_unchecked(..len) {
+            *goal = 10 * *goal + (b - b'0') as u64;
+        }
         *input = input.as_slice().get_unchecked(len + 1..).iter();
     } else if input.as_slice().len() > 0 {
         let mut acc = 0;
