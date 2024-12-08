@@ -42,6 +42,7 @@ pub unsafe fn parse1(
             *input = input.as_slice().get_unchecked(1..).iter();
         }
         *input = input.as_slice().get_unchecked(1..).iter();
+        *goal = acc;
     } else {
         return false;
     }
@@ -169,6 +170,7 @@ pub unsafe fn parse2(
             *input = input.as_slice().get_unchecked(1..).iter();
         }
         *input = input.as_slice().get_unchecked(1..).iter();
+        *goal = acc;
     } else {
         return false;
     }
