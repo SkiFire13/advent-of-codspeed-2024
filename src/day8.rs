@@ -116,11 +116,11 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
     let mut marked = [false; 64 * 50];
     let mut count = 0;
-    for (&len, positions) in std::iter::zip(&lengths, &positions) {
+    for (&len, poss) in std::iter::zip(&lengths, &positions) {
         for i in 0..len {
-            let (xi, yi) = positions.get_unchecked(i).assume_init();
+            let (xi, yi) = poss.get_unchecked(i).assume_init();
             for j in i + 1..len {
-                let (xj, yj) = positions.get_unchecked(j).assume_init();
+                let (xj, yj) = poss.get_unchecked(j).assume_init();
                 let dx = xj.wrapping_sub(xi);
                 let di = ((yj as i8 - yi as i8) as isize * 64 + dx as i8 as isize) as usize;
 
