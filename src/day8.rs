@@ -106,9 +106,8 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
             let b = *input.get_unchecked(offset + x as usize);
             let len = lengths.get_unchecked_mut(b as usize);
-            *positions
-                .get_unchecked_mut(b as usize)
-                .get_unchecked_mut(*len) = MaybeUninit::new((x as u8, y as u8));
+            let poss = positions.get_unchecked_mut(b as usize);
+            *poss.get_unchecked_mut(*len) = MaybeUninit::new((x as u8, y as u8));
             *len += 1;
         }
 
@@ -122,17 +121,17 @@ unsafe fn inner_part2(input: &str) -> u64 {
             let (xi, yi) = positions.get_unchecked(i).assume_init();
             for j in i + 1..len {
                 let (xj, yj) = positions.get_unchecked(j).assume_init();
-                let (dx, dy) = (xj.wrapping_sub(xi), yj.wrapping_sub(yi));
-                let di = dy as usize * 64 + dx as usize;
+                let dx = xj.wrapping_sub(xi);
+                let di = ((yj as i8 - yi as i8) as isize * 64 + dx as i8 as isize) as usize;
 
-                let (mut ia, mut xa) = ((xi as usize * 64) + yi as usize, xi);
+                let (mut ia, mut xa) = ((yi as usize * 64) + xi as usize, xi);
                 while ia < 64 * 50 && xa < 50 {
                     count += !marked.get_unchecked(ia) as u64;
                     *marked.get_unchecked_mut(ia) = true;
                     (ia, xa) = (ia.wrapping_sub(di), xa.wrapping_sub(dx));
                 }
 
-                let (mut ia, mut xa) = ((xj as usize * 64) + yj as usize, xj);
+                let (mut ia, mut xa) = ((yj as usize * 64) + xj as usize, xj);
                 while ia < 64 * 50 && xa < 50 {
                     count += !marked.get_unchecked(ia) as u64;
                     *marked.get_unchecked_mut(ia) = true;
