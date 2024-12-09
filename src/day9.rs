@@ -76,35 +76,26 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
     let mut pos = 0;
     let mut poss = MaybeUninit::<[u32; 19999]>::uninit();
-    let mut heaps = MaybeUninit::<[[u16; 1250]; 10]>::uninit();
-    let mut heaps_len = [1; 10];
+    let mut queues = MaybeUninit::<[[u16; 1250]; 10]>::uninit();
+    let mut queues_len = [1; 10];
 
     for i in 0..10 {
-        *heaps.get_mut(i).get_mut(0).as_mut_ptr() = u16::MAX;
+        *queues.get_mut(i).get_mut(0).as_mut_ptr() = u16::MAX;
     }
 
     for i in 0..19999 {
         let b = *input.get_unchecked(i) - b'0';
         *poss.get_mut(i).as_mut_ptr() = pos;
         pos += b as u32;
-
-        if i % 2 == 1 {
-            let len = heaps_len.get_unchecked_mut(b as usize);
-            let heap = heaps.get_mut(b as usize);
-            *heap.get_mut(*len).as_mut_ptr() = i as u16;
-            *len += 1;
-        }
     }
 
-    for i in 0..10 {
-        let len = heaps_len[i];
-        bheap::heapify(
-            &mut *heaps
-                .get_mut(i)
-                .as_mut_ptr()
-                .as_mut_slice()
-                .get_unchecked_mut(..len),
-        );
+    for i in (0..9999).rev() {
+        let i = 2 * i + 1;
+        let b = *input.get_unchecked(i) - b'0';
+        let len = queues_len.get_unchecked_mut(b as usize);
+        let queue = queues.get_mut(b as usize);
+        *queue.get_mut(*len).as_mut_ptr() = i as u16;
+        *len += 1;
     }
 
     let mut tot = 0;
@@ -116,7 +107,10 @@ unsafe fn inner_part2(input: &str) -> u64 {
         let mut min_h = 0;
         for h in (0..10).rev() {
             if h >= b {
-                let j = *heaps.get(h as usize).get(0).as_ptr();
+                let j = *queues
+                    .get(h as usize)
+                    .get(queues_len[h as usize] - 1)
+                    .as_ptr();
                 if j < min_j {
                     min_j = j;
                     min_h = h;
@@ -125,17 +119,19 @@ unsafe fn inner_part2(input: &str) -> u64 {
         }
 
         if (min_j as usize) < i {
-            let len = heaps_len.get_unchecked_mut(min_h as usize);
-            let heap = heaps.get_mut(min_h as usize);
-            bheap::pop(&mut *heap.as_mut_ptr().as_mut_slice().get_unchecked_mut(..*len));
-            *len -= 1;
+            *queues_len.get_unchecked_mut(min_h as usize) -= 1;
 
             if min_h != b {
-                let len = heaps_len.get_unchecked_mut((min_h - b) as usize);
-                let heap = heaps.get_mut((min_h - b) as usize);
-                *heap.get_mut(*len).as_mut_ptr() = min_j;
+                let len = queues_len.get_unchecked_mut((min_h - b) as usize);
+                let queue = queues.get_mut((min_h - b) as usize);
+                let mut pos = *len;
+                while *queue.get(pos - 1).as_ptr() < min_j {
+                    pos -= 1;
+                }
+                let ptr = queue.as_mut_ptr().cast::<u16>();
+                std::ptr::copy(ptr.add(pos), ptr.add(pos + 1), *len - pos);
+                *queue.get_mut(pos).as_mut_ptr() = min_j;
                 *len += 1;
-                bheap::push(&mut *heap.as_mut_ptr().as_mut_slice().get_unchecked_mut(..*len));
             }
 
             let pos = *poss.get(min_j as usize).as_ptr() as usize;
@@ -163,108 +159,5 @@ impl<T, const N: usize> MUHelper<T> for MaybeUninit<[T; N]> {
 
     unsafe fn get_mut(&mut self, i: usize) -> &mut MaybeUninit<T> {
         &mut *self.as_mut_ptr().cast::<MaybeUninit<T>>().add(i)
-    }
-}
-
-mod bheap {
-    #[inline(always)]
-    pub unsafe fn heapify<T: Copy + Ord>(heap: &mut [T]) {
-        let mut n = heap.len() / 2;
-        'outer: while n > 0 {
-            n -= 1;
-
-            // sift_down(n) => sift_down_range(n, len)
-            let end = heap.len();
-            let hole = *heap.get_unchecked(n);
-            let mut hole_pos = n;
-            let mut child = 2 * hole_pos + 1;
-
-            while child <= end.saturating_sub(2) {
-                child += (heap.get_unchecked(child) >= heap.get_unchecked(child + 1)) as usize;
-
-                if hole <= *heap.get_unchecked(child) {
-                    *heap.get_unchecked_mut(hole_pos) = hole;
-                    continue 'outer;
-                }
-
-                *heap.get_unchecked_mut(hole_pos) = *heap.get_unchecked(child);
-                hole_pos = child;
-                child = 2 * hole_pos + 1;
-            }
-
-            if child == end - 1 && hole > *heap.get_unchecked(child) {
-                *heap.get_unchecked_mut(hole_pos) = *heap.get_unchecked(child);
-                hole_pos = child;
-            }
-
-            *heap.get_unchecked_mut(hole_pos) = hole;
-        }
-    }
-
-    #[inline(always)]
-    pub unsafe fn pop<T: Copy + Ord>(heap: &mut [T]) {
-        if heap.len() > 1 {
-            // len = len - 1
-            //
-            // sift_down_to_bottom(0)
-
-            let start = 0;
-            let end = heap.len() - 1;
-
-            let hole = *heap.get_unchecked(heap.len() - 1);
-            let mut hole_pos = start;
-            let mut child = 2 * hole_pos + 1;
-
-            while child <= end.saturating_sub(2) {
-                child += (*heap.get_unchecked(child) >= *heap.get_unchecked(child + 1)) as usize;
-
-                *heap.get_unchecked_mut(hole_pos) = *heap.get_unchecked(child);
-                hole_pos = child;
-
-                child = 2 * hole_pos + 1;
-            }
-
-            if child == end - 1 {
-                *heap.get_unchecked_mut(hole_pos) = *heap.get_unchecked(child);
-                hole_pos = child;
-            }
-
-            // sift_up(start, hole_pos)
-            while hole_pos > start {
-                let parent = (hole_pos - 1) / 2;
-
-                if hole >= *heap.get_unchecked(parent) {
-                    break;
-                }
-
-                *heap.get_unchecked_mut(hole_pos) = *heap.get_unchecked(parent);
-                hole_pos = parent;
-            }
-
-            *heap.get_unchecked_mut(hole_pos) = hole;
-        }
-    }
-
-    #[inline(always)]
-    pub unsafe fn push<T: Copy + Ord>(heap: &mut [T]) {
-        // sift_up(0, heap.len() - 1)
-        let start = 0;
-        let pos = heap.len() - 1;
-
-        let hole = *heap.get_unchecked(pos);
-        let mut hole_pos = pos;
-
-        while hole_pos > start {
-            let parent = (hole_pos - 1) / 2;
-
-            if hole >= *heap.get_unchecked(parent) {
-                break;
-            }
-
-            *heap.get_unchecked_mut(hole_pos) = *heap.get_unchecked(parent);
-            hole_pos = parent;
-        }
-
-        *heap.get_unchecked_mut(hole_pos) = hole;
     }
 }
