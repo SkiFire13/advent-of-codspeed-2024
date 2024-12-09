@@ -62,7 +62,9 @@ unsafe fn inner_part1(input: &str) -> u64 {
         idf += 1;
     }
 
-    tot += (idb / 2) * (idb_len * (2 * pos + idb_len - 1) / 2);
+    if idf == idb {
+        tot += (idb / 2) * (idb_len * (2 * pos + idb_len - 1) / 2);
+    }
 
     tot as u64
 }
