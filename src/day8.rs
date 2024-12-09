@@ -51,22 +51,36 @@ unsafe fn inner_part1(input: &str) -> u64 {
             *len += 1;
 
             let (xi, oi) = (x as usize, offset + x as usize);
-            for p in poss.get_unchecked(0..*len - 1) {
-                let (xj, oj) = p.assume_init();
-                let (xj, oj) = (xj as usize, oj as usize);
 
-                let xa = (2 * xi).wrapping_sub(xj);
-                let oa = (2 * oi).wrapping_sub(oj);
-                if xa < 50 && oa < 51 * 50 {
-                    count += *marked.get_unchecked(oa) as u64;
-                    *marked.get_unchecked_mut(oa) = 0;
-                }
+            macro_rules! handle {
+                ($p:expr) => {{
+                    let p = $p;
+                    let (xj, oj) = p.assume_init();
+                    let (xj, oj) = (xj as usize, oj as usize);
 
-                let xa = (2 * xj).wrapping_sub(xi);
-                let oa = (2 * oj).wrapping_sub(oi);
-                if xa < 50 && oa < 51 * 50 {
-                    count += *marked.get_unchecked(oa) as u64;
-                    *marked.get_unchecked_mut(oa) = 0;
+                    let xa = (2 * xi).wrapping_sub(xj);
+                    let oa = (2 * oi).wrapping_sub(oj);
+                    if xa < 50 && oa < 51 * 50 {
+                        count += *marked.get_unchecked(oa) as u64;
+                        *marked.get_unchecked_mut(oa) = 0;
+                    }
+
+                    let xa = (2 * xj).wrapping_sub(xi);
+                    let oa = (2 * oj).wrapping_sub(oi);
+                    if xa < 50 && oa < 51 * 50 {
+                        count += *marked.get_unchecked(oa) as u64;
+                        *marked.get_unchecked_mut(oa) = 0;
+                    }
+                }};
+            }
+
+            if *len > 1 {
+                handle!(poss.get_unchecked(0));
+                if *len > 2 {
+                    handle!(poss.get_unchecked(1));
+                    if *len > 3 {
+                        handle!(poss.get_unchecked(2));
+                    }
                 }
             }
         }
