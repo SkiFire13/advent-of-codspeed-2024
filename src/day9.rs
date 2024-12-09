@@ -2,6 +2,9 @@
 #![feature(portable_simd)]
 #![feature(avx512_target_feature)]
 #![feature(slice_ptr_get)]
+#![feature(array_ptr_get)]
+
+use std::mem::MaybeUninit;
 
 pub fn run(input: &str) -> i64 {
     part2(input) as i64
@@ -69,31 +72,36 @@ unsafe fn inner_part2(input: &str) -> u64 {
     let input = input.as_bytes();
 
     let mut pos = 0;
-    // TODO: MaybeUninit
-    let mut poss = [0; 19999];
-    let mut heaps = [[0; 1250]; 10];
+    let mut poss = MaybeUninit::<[u32; 19999]>::uninit();
+    let mut heaps = MaybeUninit::<[[u16; 1250]; 10]>::uninit();
     let mut heaps_len = [1; 10];
 
     for i in 0..10 {
-        heaps[i][0] = u16::MAX;
+        *heaps.get_mut(i).get_mut(0).as_mut_ptr() = u16::MAX;
     }
 
     for i in 0..19999 {
         let b = *input.get_unchecked(i) - b'0';
-        *poss.get_unchecked_mut(i) = pos;
+        *poss.get_mut(i).as_mut_ptr() = pos;
         pos += b as u32;
 
         if i % 2 == 1 {
             let len = heaps_len.get_unchecked_mut(b as usize);
-            let heap = heaps.get_unchecked_mut(b as usize);
-            *heap.get_unchecked_mut(*len) = i as u16 / 2;
+            let heap = heaps.get_mut(b as usize);
+            *heap.get_mut(*len).as_mut_ptr() = i as u16 / 2;
             *len += 1;
         }
     }
 
     for i in 0..10 {
         let len = heaps_len[i];
-        bheap::heapify(heaps[i].get_unchecked_mut(..len));
+        bheap::heapify(
+            &mut *heaps
+                .get_mut(i)
+                .as_mut_ptr()
+                .as_mut_slice()
+                .get_unchecked_mut(..len),
+        );
     }
 
     let mut tot = 0;
@@ -104,7 +112,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
         let mut min_h = 0;
         for h in (0..10).rev() {
             if h >= b {
-                let j = *heaps.get_unchecked(h as usize).get_unchecked(0);
+                let j = *heaps.get(h as usize).get(0).as_ptr();
                 if j < min_j {
                     min_j = j;
                     min_h = h;
@@ -114,30 +122,44 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
         if (min_j as usize) < i {
             let len = heaps_len.get_unchecked_mut(min_h as usize);
-            let heap = heaps.get_unchecked_mut(min_h as usize);
-            bheap::pop(heap.get_unchecked_mut(..*len));
+            let heap = heaps.get_mut(min_h as usize);
+            bheap::pop(&mut *heap.as_mut_ptr().as_mut_slice().get_unchecked_mut(..*len));
             *len -= 1;
 
             if min_h != b {
                 let len = heaps_len.get_unchecked_mut((min_h - b) as usize);
-                let heap = heaps.get_unchecked_mut((min_h - b) as usize);
-                *heap.get_unchecked_mut(*len) = min_j;
+                let heap = heaps.get_mut((min_h - b) as usize);
+                *heap.get_mut(*len).as_mut_ptr() = min_j;
                 *len += 1;
-                bheap::push(heap.get_unchecked_mut(..*len));
+                bheap::push(&mut *heap.as_mut_ptr().as_mut_slice().get_unchecked_mut(..*len));
             }
 
-            let pos = *poss.get_unchecked_mut(1 + 2 * min_j as usize) as usize;
+            let pos = *poss.get(1 + 2 * min_j as usize).as_ptr() as usize;
             let new_pos = pos + b as usize;
             tot += i * ((new_pos * (new_pos - 1) / 2) - (pos * (pos - 1) / 2));
-            *poss.get_unchecked_mut(1 + 2 * min_j as usize) += b as u32;
+            *poss.get_mut(1 + 2 * min_j as usize).as_mut_ptr() += b as u32;
         } else {
-            let pos = *poss.get_unchecked(2 * i) as usize;
+            let pos = *poss.get(2 * i).as_ptr() as usize;
             let new_pos = pos + b as usize;
             tot += i * ((new_pos * (new_pos - 1) / 2) - (pos * (pos.wrapping_sub(1)) / 2));
         }
     }
 
     tot as u64
+}
+
+trait MUHelper<T> {
+    unsafe fn get(&self, i: usize) -> &MaybeUninit<T>;
+    unsafe fn get_mut(&mut self, i: usize) -> &mut MaybeUninit<T>;
+}
+impl<T, const N: usize> MUHelper<T> for MaybeUninit<[T; N]> {
+    unsafe fn get(&self, i: usize) -> &MaybeUninit<T> {
+        &*self.as_ptr().cast::<MaybeUninit<T>>().add(i)
+    }
+
+    unsafe fn get_mut(&mut self, i: usize) -> &mut MaybeUninit<T> {
+        &mut *self.as_mut_ptr().cast::<MaybeUninit<T>>().add(i)
+    }
 }
 
 mod bheap {
