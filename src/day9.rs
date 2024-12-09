@@ -142,23 +142,25 @@ unsafe fn inner_part2(input: &str) -> u64 {
         if (min_j as usize) < i {
             *queues_len.get_unchecked_mut(min_h as usize) -= 1;
 
-            if min_h - b == 1 {
-                let len = queues_len.get_unchecked_mut(0);
-                let heap = queues.get_mut(0);
-                *heap.get_mut(*len).as_mut_ptr() = min_j;
-                *len += 1;
-                bheap::push(&mut *heap.as_mut_ptr().as_mut_slice().get_unchecked_mut(..*len));
-            } else if min_h != b {
-                let len = queues_len.get_unchecked_mut((min_h - b) as usize);
-                let queue = queues.get_mut((min_h - b) as usize);
-                let mut pos = *len;
-                while *queue.get(pos - 1).as_ptr() < min_j {
-                    pos -= 1;
+            if min_h != b {
+                if min_h - b == 1 {
+                    let len = queues_len.get_unchecked_mut(0);
+                    let heap = queues.get_mut(0);
+                    *heap.get_mut(*len).as_mut_ptr() = min_j;
+                    *len += 1;
+                    bheap::push(&mut *heap.as_mut_ptr().as_mut_slice().get_unchecked_mut(..*len));
+                } else {
+                    let len = queues_len.get_unchecked_mut((min_h - b) as usize);
+                    let queue = queues.get_mut((min_h - b) as usize);
+                    let mut pos = *len;
+                    while *queue.get(pos - 1).as_ptr() < min_j {
+                        pos -= 1;
+                    }
+                    let ptr = queue.as_mut_ptr().cast::<u16>();
+                    std::ptr::copy(ptr.add(pos), ptr.add(pos + 1), *len - pos);
+                    *queue.get_mut(pos).as_mut_ptr() = min_j;
+                    *len += 1;
                 }
-                let ptr = queue.as_mut_ptr().cast::<u16>();
-                std::ptr::copy(ptr.add(pos), ptr.add(pos + 1), *len - pos);
-                *queue.get_mut(pos).as_mut_ptr() = min_j;
-                *len += 1;
             }
 
             let pos = *poss.get(min_j as usize).as_ptr() as usize;
