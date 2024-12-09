@@ -28,20 +28,14 @@ unsafe fn inner_part1(input: &str) -> u64 {
     let mut marked = [1u8; 64 * 50];
     let mut count = 0;
 
-    let mut y = 0;
-
-    loop {
+    for y in 0..50 {
         let offset = 51 * y;
-        let mut mask;
-        if y < 49 {
-            let block = u8x64::from_slice(input.get_unchecked(offset..offset + 64));
-            mask = block.simd_ne(u8x64::splat(b'.')).to_bitmask() & ((1 << 50) - 1);
-        } else if y == 49 {
-            let block = u8x64::from_slice(input.get_unchecked(input.len() - 65..));
-            mask = block.simd_ne(u8x64::splat(b'.')).to_bitmask() >> 14;
-        } else {
-            break;
-        }
+
+        let block1 = u8x32::from_slice(input.get_unchecked(offset..offset + 32));
+        let mask1 = block1.simd_ne(u8x32::splat(b'.')).to_bitmask();
+        let block2 = u8x32::from_slice(input.get_unchecked(offset + 50 - 32..offset + 50));
+        let mask2 = block2.simd_ne(u8x32::splat(b'.')).to_bitmask() << 18;
+        let mut mask = mask1 | mask2;
 
         while mask != 0 {
             let x = mask.trailing_zeros();
@@ -50,12 +44,12 @@ unsafe fn inner_part1(input: &str) -> u64 {
             let b = *input.get_unchecked(offset + x as usize);
             let len = lengths.get_unchecked_mut(b as usize);
             let poss = positions.get_unchecked_mut(b as usize);
-            *poss.get_unchecked_mut(*len) = MaybeUninit::new((x as u32, y as u32));
+            poss.get_unchecked_mut(*len).write((x as u32, y as u32));
             *len += 1;
 
             let (xi, yi) = (x as u32, y as u32);
-            for j in 0..*len - 1 {
-                let (xj, yj) = poss.get_unchecked(j).assume_init();
+            for p in poss.get_unchecked(0..*len - 1) {
+                let (xj, yj) = p.assume_init();
 
                 let (xa, ya) = ((2 * xi).wrapping_sub(xj), (2 * yi).wrapping_sub(yj));
                 if xa < 50 && ya < 50 {
@@ -70,8 +64,6 @@ unsafe fn inner_part1(input: &str) -> u64 {
                 }
             }
         }
-
-        y += 1;
     }
 
     count
@@ -84,20 +76,13 @@ unsafe fn inner_part2(input: &str) -> u64 {
     let mut positions = [[MaybeUninit::<(u32, u32)>::uninit(); 4]; 128];
     let mut lengths = [0; 128];
 
-    let mut y = 0;
-
-    loop {
+    for y in 0..50 {
         let offset = 51 * y;
-        let mut mask;
-        if y < 49 {
-            let block = u8x64::from_slice(input.get_unchecked(offset..offset + 64));
-            mask = block.simd_ne(u8x64::splat(b'.')).to_bitmask() & ((1 << 50) - 1);
-        } else if y == 49 {
-            let block = u8x64::from_slice(input.get_unchecked(input.len() - 65..));
-            mask = block.simd_ne(u8x64::splat(b'.')).to_bitmask() >> 14;
-        } else {
-            break;
-        }
+        let block1 = u8x32::from_slice(input.get_unchecked(offset..offset + 32));
+        let mask1 = block1.simd_ne(u8x32::splat(b'.')).to_bitmask();
+        let block2 = u8x32::from_slice(input.get_unchecked(offset + 50 - 32..offset + 50));
+        let mask2 = block2.simd_ne(u8x32::splat(b'.')).to_bitmask() << 18;
+        let mut mask = mask1 | mask2;
 
         while mask != 0 {
             let x = mask.trailing_zeros();
@@ -106,20 +91,18 @@ unsafe fn inner_part2(input: &str) -> u64 {
             let b = *input.get_unchecked(offset + x as usize);
             let len = lengths.get_unchecked_mut(b as usize);
             let poss = positions.get_unchecked_mut(b as usize);
-            *poss.get_unchecked_mut(*len) = MaybeUninit::new((x as u32, y as u32));
+            poss.get_unchecked_mut(*len).write((x as u32, y as u32));
             *len += 1;
         }
-
-        y += 1;
     }
 
     let mut marked = [1u8; 50 * 50];
     let mut count = 0;
     for (&len, poss) in std::iter::zip(&lengths, &positions) {
-        for i in 0..len {
-            let (xi, yi) = poss.get_unchecked(i).assume_init();
-            for j in i + 1..len {
-                let (xj, yj) = poss.get_unchecked(j).assume_init();
+        for (i, pi) in poss.get_unchecked(0..len).iter().enumerate() {
+            let (xi, yi) = pi.assume_init();
+            for pj in poss.get_unchecked(i + 1..len) {
+                let (xj, yj) = pj.assume_init();
                 let dx = xj.wrapping_sub(xi);
                 let di = ((yj as isize - yi as isize) * 50 + dx as i32 as isize) as usize;
 
