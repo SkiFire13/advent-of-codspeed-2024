@@ -26,13 +26,11 @@ unsafe fn inner_part1(input: &str) -> u64 {
     let input = input.as_bytes();
     let mut positions = [[MaybeUninit::<(u32, u32)>::uninit(); 4]; 128];
     let mut lengths = [0; 128];
-
     let mut marked = [1u8; 51 * 50];
     let mut count = 0;
 
     for y in 0..50 {
         let offset = 51 * y;
-
         let block1 = u8x32::from_slice(input.get_unchecked(offset..offset + 32));
         let mask1 = block1.simd_ne(u8x32::splat(b'.')).to_bitmask();
         let block2 = u8x32::from_slice(input.get_unchecked(offset + 50 - 32..offset + 50));
@@ -127,14 +125,14 @@ unsafe fn inner_part2(input: &str) -> u64 {
                 let dq = oj.wrapping_sub(oi);
 
                 let (mut oa, mut xa) = (oi, xi);
-                while oa < 51 * 50 && xa < 50 {
+                while xa < 50 && oa < 51 * 50 {
                     count += *marked.get_unchecked(oa) as u64;
                     *marked.get_unchecked_mut(oa) = 0;
                     (oa, xa) = (oa.wrapping_sub(dq), xa.wrapping_sub(dx));
                 }
 
                 let (mut oa, mut xa) = (oj, xj);
-                while oa < 51 * 50 && xa < 50 {
+                while xa < 50 && oa < 51 * 50 {
                     count += *marked.get_unchecked(oa) as u64;
                     *marked.get_unchecked_mut(oa) = 0;
                     (oa, xa) = (oa.wrapping_add(dq), xa.wrapping_add(dx));
