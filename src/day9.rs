@@ -7,7 +7,7 @@
 use std::mem::MaybeUninit;
 
 pub fn run(input: &str) -> i64 {
-    part2(input) as i64
+    part1(input) as i64
 }
 
 pub fn part1(input: &str) -> u64 {
@@ -33,31 +33,36 @@ unsafe fn inner_part1(input: &str) -> u64 {
     let mut tot = 0;
     let mut pos = 0;
 
-    while idf < idb {
+    'outer: while idf < idb {
         let len = (*input.get_unchecked(idf) - b'0') as usize;
         let new_pos = pos + len;
         tot += (idf / 2) * ((new_pos * (new_pos - 1) / 2) - (pos * (pos.wrapping_sub(1)) / 2));
         pos = new_pos;
 
         idf += 1;
-        if idf < idb {
-            let mut fill_len = (*input.get_unchecked(idf) - b'0') as usize;
 
-            while fill_len != 0 && idf < idb {
-                let len = std::cmp::min(fill_len, idb_len);
-                let new_pos = pos + len;
+        let mut fill_len = (*input.get_unchecked(idf) - b'0') as usize;
+        loop {
+            if fill_len >= idb_len {
+                let new_pos = pos + idb_len;
                 tot += (idb / 2) * ((new_pos * (new_pos - 1) / 2) - (pos * (pos - 1) / 2));
                 pos = new_pos;
-                idb_len -= len;
-                fill_len -= len;
-                if idb_len == 0 {
-                    idb -= 2;
-                    idb_len = (*input.get_unchecked(idb) - b'0') as usize;
-                }
+                fill_len -= idb_len;
+                idb -= 2;
+                idb_len = (*input.get_unchecked(idb) - b'0') as usize;
+            } else {
+                let new_pos = pos + fill_len;
+                tot += (idb / 2) * ((new_pos * (new_pos - 1) / 2) - (pos * (pos - 1) / 2));
+                pos = new_pos;
+                idb_len -= fill_len;
+                break;
             }
-
-            idf += 1;
+            if idb < idf {
+                break 'outer;
+            }
         }
+
+        idf += 1;
     }
 
     let new_pos = pos + idb_len;
