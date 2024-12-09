@@ -7,7 +7,7 @@
 use std::mem::MaybeUninit;
 
 pub fn run(input: &str) -> i64 {
-    part1(input) as i64
+    part2(input) as i64
 }
 
 pub fn part1(input: &str) -> u64 {
@@ -35,25 +35,22 @@ unsafe fn inner_part1(input: &str) -> u64 {
 
     'outer: while idf < idb {
         let len = (*input.get_unchecked(idf) - b'0') as usize;
-        let new_pos = pos + len;
-        tot += (idf / 2) * ((new_pos * (new_pos - 1) / 2) - (pos * (pos.wrapping_sub(1)) / 2));
-        pos = new_pos;
+        tot += (idf / 2) * (len * (2 * pos + len - 1) / 2);
+        pos += len;
 
         idf += 1;
 
         let mut fill_len = (*input.get_unchecked(idf) - b'0') as usize;
         loop {
             if fill_len >= idb_len {
-                let new_pos = pos + idb_len;
-                tot += (idb / 2) * ((new_pos * (new_pos - 1) / 2) - (pos * (pos - 1) / 2));
-                pos = new_pos;
+                tot += (idb / 2) * (idb_len * (2 * pos + idb_len - 1) / 2);
+                pos += idb_len;
                 fill_len -= idb_len;
                 idb -= 2;
                 idb_len = (*input.get_unchecked(idb) - b'0') as usize;
             } else {
-                let new_pos = pos + fill_len;
-                tot += (idb / 2) * ((new_pos * (new_pos - 1) / 2) - (pos * (pos - 1) / 2));
-                pos = new_pos;
+                tot += (idb / 2) * (fill_len * (2 * pos + fill_len - 1) / 2);
+                pos += fill_len;
                 idb_len -= fill_len;
                 break;
             }
@@ -65,8 +62,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
         idf += 1;
     }
 
-    let new_pos = pos + idb_len;
-    tot += (idb / 2) * ((new_pos * (new_pos - 1) / 2) - (pos * (pos - 1) / 2));
+    tot += (idb / 2) * (idb_len * (2 * pos + idb_len - 1) / 2);
 
     tot as u64
 }
@@ -140,13 +136,13 @@ unsafe fn inner_part2(input: &str) -> u64 {
             }
 
             let pos = *poss.get(1 + 2 * min_j as usize).as_ptr() as usize;
-            let new_pos = pos + b as usize;
-            tot += i * ((new_pos * (new_pos - 1) / 2) - (pos * (pos - 1) / 2));
+            let len = b as usize;
+            tot += i * (len * (2 * pos + len - 1) / 2);
             *poss.get_mut(1 + 2 * min_j as usize).as_mut_ptr() += b as u32;
         } else {
             let pos = *poss.get(2 * i).as_ptr() as usize;
-            let new_pos = pos + b as usize;
-            tot += i * ((new_pos * (new_pos - 1) / 2) - (pos * (pos.wrapping_sub(1)) / 2));
+            let len = b as usize;
+            tot += i * (len * (2 * pos + len - 1) / 2);
         }
     }
 
