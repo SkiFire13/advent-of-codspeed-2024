@@ -10,10 +10,12 @@ pub fn run(input: &str) -> i64 {
     part1(input) as i64
 }
 
+#[inline(always)]
 pub fn part1(input: &str) -> u64 {
     unsafe { inner_part1(input) }
 }
 
+#[inline(always)]
 pub fn part2(input: &str) -> u64 {
     unsafe { inner_part2(input) }
 }
@@ -25,7 +27,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
     let mut positions = [[MaybeUninit::<(u32, u32)>::uninit(); 4]; 128];
     let mut lengths = [0; 128];
 
-    let mut marked = [1u8; 64 * 50];
+    let mut marked = [1u8; 51 * 50];
     let mut count = 0;
 
     for y in 0..50 {
@@ -44,23 +46,27 @@ unsafe fn inner_part1(input: &str) -> u64 {
             let b = *input.get_unchecked(offset + x as usize);
             let len = lengths.get_unchecked_mut(b as usize);
             let poss = positions.get_unchecked_mut(b as usize);
-            poss.get_unchecked_mut(*len).write((x as u32, y as u32));
+            poss.get_unchecked_mut(*len)
+                .write((x as u32, offset as u32 + x));
             *len += 1;
 
-            let (xi, yi) = (x as u32, y as u32);
+            let (xi, oi) = (x as usize, offset + x as usize);
             for p in poss.get_unchecked(0..*len - 1) {
-                let (xj, yj) = p.assume_init();
+                let (xj, oj) = p.assume_init();
+                let (xj, oj) = (xj as usize, oj as usize);
 
-                let (xa, ya) = ((2 * xi).wrapping_sub(xj), (2 * yi).wrapping_sub(yj));
-                if xa < 50 && ya < 50 {
-                    count += *marked.get_unchecked((xa as usize * 64) + ya as usize) as u64;
-                    *marked.get_unchecked_mut((xa as usize * 64) + ya as usize) = 0;
+                let xa = (2 * xi).wrapping_sub(xj);
+                let oa = (2 * oi).wrapping_sub(oj);
+                if xa < 50 && oa < 51 * 50 {
+                    count += *marked.get_unchecked(oa) as u64;
+                    *marked.get_unchecked_mut(oa) = 0;
                 }
 
-                let (xa, ya) = ((2 * xj).wrapping_sub(xi), (2 * yj).wrapping_sub(yi));
-                if xa < 50 && ya < 50 {
-                    count += *marked.get_unchecked((xa as usize * 64) + ya as usize) as u64;
-                    *marked.get_unchecked_mut((xa as usize * 64) + ya as usize) = 0;
+                let xa = (2 * xj).wrapping_sub(xi);
+                let oa = (2 * oj).wrapping_sub(oi);
+                if xa < 50 && oa < 51 * 50 {
+                    count += *marked.get_unchecked(oa) as u64;
+                    *marked.get_unchecked_mut(oa) = 0;
                 }
             }
         }
