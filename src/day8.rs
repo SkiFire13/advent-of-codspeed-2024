@@ -95,6 +95,8 @@ unsafe fn inner_part2(input: &str) -> u64 {
     let input = input.as_bytes();
     let mut positions = [[MaybeUninit::<(u32, u32)>::uninit(); 4]; 128];
     let mut lengths = [0; 128];
+    let mut marked = [1u8; 51 * 50];
+    let mut count = 0;
 
     for y in 0..50 {
         let offset = 51 * y;
@@ -114,16 +116,10 @@ unsafe fn inner_part2(input: &str) -> u64 {
             poss.get_unchecked_mut(*len)
                 .write((x as u32, offset as u32 + x));
             *len += 1;
-        }
-    }
 
-    let mut marked = [1u8; 51 * 50];
-    let mut count = 0;
-    for (&len, poss) in std::iter::zip(&lengths, &positions) {
-        for (i, pi) in poss.get_unchecked(0..len).iter().enumerate() {
-            let (xi, oi) = pi.assume_init();
-            let oi = oi as usize;
-            for pj in poss.get_unchecked(i + 1..len) {
+            let xi = x;
+            let oi = offset + x as usize;
+            for pj in poss.get_unchecked(..*len - 1) {
                 let (xj, oj) = pj.assume_init();
                 let oj = oj as usize;
 
