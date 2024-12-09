@@ -10,10 +10,12 @@ pub fn run(input: &str) -> i64 {
     part2(input) as i64
 }
 
+#[inline(always)]
 pub fn part1(input: &str) -> u64 {
     unsafe { inner_part1(input) }
 }
 
+#[inline(always)]
 pub fn part2(input: &str) -> u64 {
     unsafe { inner_part2(input) }
 }
@@ -41,23 +43,20 @@ unsafe fn inner_part1(input: &str) -> u64 {
         idf += 1;
 
         let mut fill_len = (*input.get_unchecked(idf) - b'0') as usize;
-        loop {
-            if fill_len >= idb_len {
-                tot += (idb / 2) * (idb_len * (2 * pos + idb_len - 1) / 2);
-                pos += idb_len;
-                fill_len -= idb_len;
-                idb -= 2;
-                idb_len = (*input.get_unchecked(idb) - b'0') as usize;
-            } else {
-                tot += (idb / 2) * (fill_len * (2 * pos + fill_len - 1) / 2);
-                pos += fill_len;
-                idb_len -= fill_len;
-                break;
-            }
+        while fill_len >= idb_len {
+            tot += (idb / 2) * (idb_len * (2 * pos + idb_len - 1) / 2);
+            pos += idb_len;
+            fill_len -= idb_len;
+            idb -= 2;
+            idb_len = (*input.get_unchecked(idb) - b'0') as usize;
             if idb < idf {
                 break 'outer;
             }
         }
+
+        tot += (idb / 2) * (fill_len * (2 * pos + fill_len - 1) / 2);
+        pos += fill_len;
+        idb_len -= fill_len;
 
         idf += 1;
     }
