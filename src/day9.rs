@@ -82,29 +82,26 @@ unsafe fn inner_part2(input: &str) -> u64 {
         *queues.get_mut(i).get_mut(0).as_mut_ptr() = u16::MAX;
     }
 
-    let mut i = 0;
-    let mut j = 0;
+    let mut i = 19999;
+    let mut j = 9999;
     loop {
+        i -= 1;
+
         let b = *input.get_unchecked(i) - b'0';
         pos += b as u32;
 
-        i += 1;
-
-        if i == 19999 {
+        if i == 0 {
             break;
         }
 
+        i -= 1;
+        j -= 1;
+
         let b = *input.get_unchecked(i) - b'0';
-        *poss.get_mut(j).as_mut_ptr() = pos;
         pos += b as u32;
 
-        i += 1;
-        j += 1;
-    }
+        *poss.get_mut(j).as_mut_ptr() = pos;
 
-    for j in (0..9999).rev() {
-        let i = 2 * j + 1;
-        let b = *input.get_unchecked(i) - b'0';
         let len = queues_len.get_unchecked_mut(b as usize);
         let queue = queues.get_mut(b as usize);
         *queue.get_mut(*len).as_mut_ptr() = j as u16;
@@ -116,11 +113,12 @@ unsafe fn inner_part2(input: &str) -> u64 {
     let mut tot = 0;
 
     let mut i = 19998;
+    let mut posi = pos as usize;
+    let total_pos = pos as usize;
     loop {
         let b = *input.get_unchecked(i) - b'0';
 
-        pos -= b as u32;
-        let posi = pos as usize;
+        posi -= b as usize;
 
         let mut min_j = u16::MAX;
         let mut min_h = 0;
@@ -138,7 +136,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
         }
 
         let j = *queues.get(0).get(0).as_ptr();
-        if b == 1 && j < min_j && (j as usize) < i {
+        if b == 1 && j < min_j && (j as usize) < i / 2 {
             min_j = j;
 
             let len = queues_len.get_unchecked_mut(0);
@@ -146,10 +144,10 @@ unsafe fn inner_part2(input: &str) -> u64 {
             bheap::pop(&mut *heap.as_mut_ptr().as_mut_slice().get_unchecked_mut(..*len));
             *len -= 1;
 
-            let pos = *poss.get(min_j as usize).as_ptr() as usize;
+            let pos = total_pos - *poss.get(min_j as usize).as_ptr() as usize;
             let len = b as usize;
             tot += (i / 2) * (len * (2 * pos + len - 1) / 2);
-            *poss.get_mut(min_j as usize).as_mut_ptr() += b as u32;
+            *poss.get_mut(min_j as usize).as_mut_ptr() -= b as u32;
         } else if (min_j as usize) < i / 2 {
             *queues_len.get_unchecked_mut(min_h as usize) -= 1;
 
@@ -174,10 +172,10 @@ unsafe fn inner_part2(input: &str) -> u64 {
                 }
             }
 
-            let pos = *poss.get(min_j as usize).as_ptr() as usize;
+            let pos = total_pos - *poss.get(min_j as usize).as_ptr() as usize;
             let len = b as usize;
             tot += (i / 2) * (len * (2 * pos + len - 1) / 2);
-            *poss.get_mut(min_j as usize).as_mut_ptr() += b as u32;
+            *poss.get_mut(min_j as usize).as_mut_ptr() -= b as u32;
         } else {
             let len = b as usize;
             tot += (i / 2) * (len * (2 * posi + len - 1) / 2);
@@ -188,7 +186,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
         }
 
         i -= 2;
-        pos -= (*input.get_unchecked(i + 1) - b'0') as u32;
+        posi -= (*input.get_unchecked(i + 1) - b'0') as usize;
     }
 
     tot as u64
