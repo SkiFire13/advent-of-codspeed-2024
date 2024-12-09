@@ -117,6 +117,10 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
             let xi = x;
             let oi = offset + x as usize;
+
+            count += *marked.get_unchecked(oi) as u64;
+            *marked.get_unchecked_mut(oi) = 0;
+
             for pj in poss.get_unchecked(..*len - 1) {
                 let (xj, oj) = pj.assume_init();
                 let oj = oj as usize;
@@ -124,14 +128,16 @@ unsafe fn inner_part2(input: &str) -> u64 {
                 let dx = xj.wrapping_sub(xi);
                 let dq = oj.wrapping_sub(oi);
 
-                let (mut oa, mut xa) = (oi, xi);
+                let mut xa = (2 * xi).wrapping_sub(xj);
+                let mut oa = (2 * oi).wrapping_sub(oj);
                 while xa < 50 && oa < 51 * 50 {
                     count += *marked.get_unchecked(oa) as u64;
                     *marked.get_unchecked_mut(oa) = 0;
                     (oa, xa) = (oa.wrapping_sub(dq), xa.wrapping_sub(dx));
                 }
 
-                let (mut oa, mut xa) = (oj, xj);
+                let mut xa = (2 * xj).wrapping_sub(xi);
+                let mut oa = (2 * oj).wrapping_sub(oi);
                 while xa < 50 && oa < 51 * 50 {
                     count += *marked.get_unchecked(oa) as u64;
                     *marked.get_unchecked_mut(oa) = 0;
