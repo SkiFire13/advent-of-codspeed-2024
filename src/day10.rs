@@ -26,6 +26,11 @@ pub fn part2(input: &str) -> u64 {
 unsafe fn inner_part1(input: &str) -> u64 {
     let input = input.as_bytes();
 
+    let line_len = 1 + u8x64::from_slice(input.get_unchecked(..64))
+        .simd_eq(u8x64::splat(b'\n'))
+        .first_set()
+        .unwrap_unchecked();
+    let len = input.len() - 1;
     let mut offset = 0;
     let mut tot = 0;
 
@@ -34,8 +39,8 @@ unsafe fn inner_part1(input: &str) -> u64 {
             let block = u8x64::from_slice(input.get_unchecked(offset..offset + 64));
             block.simd_eq(u8x64::splat(b'9')).to_bitmask()
         } else if offset < input.len() {
-            let block = u8x32::from_slice(input.get_unchecked(45 * 46 - 32..));
-            block.simd_eq(u8x32::splat(b'9')).to_bitmask() >> 10
+            let block = u8x32::from_slice(input.get_unchecked(input.len() - 64..));
+            block.simd_eq(u8x32::splat(b'9')).to_bitmask() >> (64 - (input.len() - offset))
         } else {
             break;
         };
@@ -70,22 +75,22 @@ unsafe fn inner_part1(input: &str) -> u64 {
                 }
 
                 let new_o = curr_o.wrapping_sub(1);
-                if new_o < 45 * 46 - 1 && *input.get_unchecked(new_o) == c - 1 {
+                if new_o < len && *input.get_unchecked(new_o) == c - 1 {
                     *stack.get_unchecked_mut(stack_len).as_mut_ptr() = (new_o, c - 1);
                     stack_len += 1;
                 }
                 let new_o = curr_o.wrapping_add(1);
-                if new_o < 45 * 46 - 1 && *input.get_unchecked(new_o) == c - 1 {
+                if new_o < len && *input.get_unchecked(new_o) == c - 1 {
                     *stack.get_unchecked_mut(stack_len).as_mut_ptr() = (new_o, c - 1);
                     stack_len += 1;
                 }
-                let new_o = curr_o.wrapping_sub(46);
-                if new_o < 45 * 46 - 1 && *input.get_unchecked(new_o) == c - 1 {
+                let new_o = curr_o.wrapping_sub(line_len);
+                if new_o < len && *input.get_unchecked(new_o) == c - 1 {
                     *stack.get_unchecked_mut(stack_len).as_mut_ptr() = (new_o, c - 1);
                     stack_len += 1;
                 }
-                let new_o = curr_o.wrapping_add(46);
-                if new_o < 45 * 46 - 1 && *input.get_unchecked(new_o) == c - 1 {
+                let new_o = curr_o.wrapping_add(line_len);
+                if new_o < len && *input.get_unchecked(new_o) == c - 1 {
                     (curr_o, c) = (new_o, c - 1);
                 } else {
                     if stack_len > 0 {
@@ -111,6 +116,11 @@ unsafe fn inner_part1(input: &str) -> u64 {
 unsafe fn inner_part2(input: &str) -> u64 {
     let input = input.as_bytes();
 
+    let line_len = 1 + u8x64::from_slice(input.get_unchecked(..64))
+        .simd_eq(u8x64::splat(b'\n'))
+        .first_set()
+        .unwrap_unchecked() as u16;
+    let len = input.len() as u16 - 1;
     let mut offset = 0;
     let mut tot = 0;
 
@@ -119,8 +129,8 @@ unsafe fn inner_part2(input: &str) -> u64 {
             let block = u8x64::from_slice(input.get_unchecked(offset..offset + 64));
             block.simd_eq(u8x64::splat(b'9')).to_bitmask()
         } else if offset < input.len() {
-            let block = u8x32::from_slice(input.get_unchecked(45 * 46 - 32..));
-            block.simd_eq(u8x32::splat(b'9')).to_bitmask() >> 10
+            let block = u8x32::from_slice(input.get_unchecked(input.len() - 64..));
+            block.simd_eq(u8x32::splat(b'9')).to_bitmask() >> (64 - (input.len() - offset))
         } else {
             break;
         };
@@ -147,7 +157,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
                     macro_rules! handle {
                         ($new_o:expr) => {{
                             let new_o = $new_o;
-                            if new_o < 45 * 46 - 1 && *input.get_unchecked(new_o as usize) == c {
+                            if new_o < len && *input.get_unchecked(new_o as usize) == c {
                                 if let Some(idx) =
                                     seen2.simd_eq(u16x16::splat(new_o as u16)).first_set()
                                 {
@@ -163,8 +173,8 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
                     handle!(curr_o.wrapping_sub(1));
                     handle!(curr_o.wrapping_add(1));
-                    handle!(curr_o.wrapping_sub(46));
-                    handle!(curr_o.wrapping_add(46));
+                    handle!(curr_o.wrapping_sub(line_len));
+                    handle!(curr_o.wrapping_add(line_len));
                 }
 
                 seen1 = seen2;
@@ -184,7 +194,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
                 macro_rules! handle {
                     ($new_o:expr) => {{
                         let new_o = $new_o;
-                        if new_o < 45 * 46 - 1 && *input.get_unchecked(new_o as usize) == c {
+                        if new_o < len && *input.get_unchecked(new_o as usize) == c {
                             tot += curr_count;
                         }
                     }};
@@ -192,8 +202,8 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
                 handle!(curr_o.wrapping_sub(1));
                 handle!(curr_o.wrapping_add(1));
-                handle!(curr_o.wrapping_sub(46));
-                handle!(curr_o.wrapping_add(46));
+                handle!(curr_o.wrapping_sub(line_len));
+                handle!(curr_o.wrapping_add(line_len));
             }
         }
 
