@@ -75,7 +75,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
     let mut pos = 0;
     let mut poss = MaybeUninit::<[u16; 5700]>::uninit();
-    let mut queues = MaybeUninit::<[[u16; 1250]; 10]>::uninit();
+    let mut queues = MaybeUninit::<[[u16; 750]; 10]>::uninit();
     let mut queues_len = [1; 10];
 
     for i in 0..10 {
@@ -99,11 +99,6 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
         let b = *input.get_unchecked(i) - b'0';
         pos += b as u16;
-
-        let len = queues_len.get_unchecked_mut(b as usize);
-        let queue = queues.get_mut(b as usize);
-        *queue.get_mut(*len).as_mut_ptr() = j as u16;
-        *len += 1;
     }
     let posj_base = pos;
     pos = 0;
