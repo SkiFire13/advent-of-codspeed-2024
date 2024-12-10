@@ -32,10 +32,10 @@ unsafe fn inner_part1(input: &str) -> u64 {
     loop {
         let mut mask = if offset + 64 < input.len() {
             let block = u8x64::from_slice(input.get_unchecked(offset..offset + 64));
-            block.simd_eq(u8x64::splat(b'0')).to_bitmask()
+            block.simd_eq(u8x64::splat(b'9')).to_bitmask()
         } else if offset < input.len() {
             let block = u8x32::from_slice(input.get_unchecked(45 * 46 - 32..));
-            block.simd_eq(u8x32::splat(b'0')).to_bitmask() >> 10
+            block.simd_eq(u8x32::splat(b'9')).to_bitmask() >> 10
         } else {
             break;
         };
@@ -44,21 +44,20 @@ unsafe fn inner_part1(input: &str) -> u64 {
             let o = mask.trailing_zeros();
             mask &= !(1 << o);
 
-            let mut seen = u16x8::from_slice(&[u16::MAX; 8]);
+            let mut seen = u16x16::from_slice(&[u16::MAX; 16]);
             let mut seen_len = 0;
 
             let mut stack = [MaybeUninit::uninit(); 16];
             let mut stack_len = 0;
 
             let mut curr_o = offset + o as usize;
-            let mut c = b'0';
+            let mut c = b'9';
 
             loop {
-                if c == b'9' {
-                    if seen.simd_ne(u16x8::splat(curr_o as u16)).all() {
+                if c == b'0' {
+                    if seen.simd_ne(u16x16::splat(curr_o as u16)).all() {
                         *seen.as_mut_array().get_unchecked_mut(seen_len) = curr_o as u16;
                         seen_len += 1;
-                        tot += 1;
                     }
 
                     if stack_len == 0 {
@@ -71,23 +70,23 @@ unsafe fn inner_part1(input: &str) -> u64 {
                 }
 
                 let new_o = curr_o.wrapping_sub(1);
-                if new_o < 45 * 46 - 1 && *input.get_unchecked(new_o) == c + 1 {
-                    *stack.get_unchecked_mut(stack_len).as_mut_ptr() = (new_o, c + 1);
+                if new_o < 45 * 46 - 1 && *input.get_unchecked(new_o) == c - 1 {
+                    *stack.get_unchecked_mut(stack_len).as_mut_ptr() = (new_o, c - 1);
                     stack_len += 1;
                 }
                 let new_o = curr_o.wrapping_add(1);
-                if new_o < 45 * 46 - 1 && *input.get_unchecked(new_o) == c + 1 {
-                    *stack.get_unchecked_mut(stack_len).as_mut_ptr() = (new_o, c + 1);
+                if new_o < 45 * 46 - 1 && *input.get_unchecked(new_o) == c - 1 {
+                    *stack.get_unchecked_mut(stack_len).as_mut_ptr() = (new_o, c - 1);
                     stack_len += 1;
                 }
                 let new_o = curr_o.wrapping_sub(46);
-                if new_o < 45 * 46 - 1 && *input.get_unchecked(new_o) == c + 1 {
-                    *stack.get_unchecked_mut(stack_len).as_mut_ptr() = (new_o, c + 1);
+                if new_o < 45 * 46 - 1 && *input.get_unchecked(new_o) == c - 1 {
+                    *stack.get_unchecked_mut(stack_len).as_mut_ptr() = (new_o, c - 1);
                     stack_len += 1;
                 }
                 let new_o = curr_o.wrapping_add(46);
-                if new_o < 45 * 46 - 1 && *input.get_unchecked(new_o) == c + 1 {
-                    (curr_o, c) = (new_o, c + 1);
+                if new_o < 45 * 46 - 1 && *input.get_unchecked(new_o) == c - 1 {
+                    (curr_o, c) = (new_o, c - 1);
                 } else {
                     if stack_len > 0 {
                         stack_len -= 1;
@@ -97,12 +96,14 @@ unsafe fn inner_part1(input: &str) -> u64 {
                     }
                 }
             }
+
+            tot += seen_len;
         }
 
         offset += 64;
     }
 
-    tot
+    tot as u64
 }
 
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
