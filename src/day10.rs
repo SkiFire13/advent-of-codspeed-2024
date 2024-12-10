@@ -39,8 +39,8 @@ unsafe fn inner_part1(input: &str) -> u64 {
             let block = u8x64::from_slice(input.get_unchecked(offset..offset + 64));
             block.simd_eq(u8x64::splat(b'9')).to_bitmask()
         } else if offset < input.len() {
-            let block = u8x32::from_slice(input.get_unchecked(input.len() - 64..));
-            block.simd_eq(u8x32::splat(b'9')).to_bitmask() >> (64 - (input.len() - offset))
+            let block = u8x64::from_slice(input.get_unchecked(input.len() - 64..));
+            block.simd_eq(u8x64::splat(b'9')).to_bitmask() >> (64 - (input.len() - offset))
         } else {
             break;
         };
@@ -129,8 +129,8 @@ unsafe fn inner_part2(input: &str) -> u64 {
             let block = u8x64::from_slice(input.get_unchecked(offset..offset + 64));
             block.simd_eq(u8x64::splat(b'9')).to_bitmask()
         } else if offset < input.len() {
-            let block = u8x32::from_slice(input.get_unchecked(input.len() - 64..));
-            block.simd_eq(u8x32::splat(b'9')).to_bitmask() >> (64 - (input.len() - offset))
+            let block = u8x64::from_slice(input.get_unchecked(input.len() - 64..));
+            block.simd_eq(u8x64::splat(b'9')).to_bitmask() >> (64 - (input.len() - offset))
         } else {
             break;
         };
