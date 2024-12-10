@@ -179,10 +179,18 @@ unsafe fn inner_part2(input: &str) -> u64 {
         } else {
             let len = b as usize;
             tot += (i / 2) * (len * (2 * posi + len - 1) / 2);
-        }
 
-        if i == 0 {
-            break;
+            if b == 1 {
+                while i != 0 {
+                    i -= 2;
+                    posi -= (*input.get_unchecked(i + 1) - b'0') as usize;
+                    let b = *input.get_unchecked(i) - b'0';
+                    posi -= b as usize;
+                    let len = b as usize;
+                    tot += (i / 2) * (len * (2 * posi + len - 1) / 2);
+                }
+                break;
+            }
         }
 
         i -= 2;
