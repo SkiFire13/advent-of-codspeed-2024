@@ -35,7 +35,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
     let mut tot = 0;
 
     loop {
-        let mut mask = if offset + 64 < input.len() {
+        let mut mask = if offset + 64 <= input.len() {
             let block = u8x64::from_slice(input.get_unchecked(offset..offset + 64));
             block.simd_eq(u8x64::splat(b'9')).to_bitmask()
         } else if offset < input.len() {
@@ -125,7 +125,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
     let mut tot = 0;
 
     loop {
-        let mut mask = if offset + 64 < input.len() {
+        let mut mask = if offset + 64 <= input.len() {
             let block = u8x64::from_slice(input.get_unchecked(offset..offset + 64));
             block.simd_eq(u8x64::splat(b'9')).to_bitmask()
         } else if offset < input.len() {
