@@ -74,31 +74,40 @@ unsafe fn inner_part1(input: &str) -> u64 {
                     continue;
                 }
 
-                let new_o = curr_o.wrapping_sub(1);
-                if new_o < len && *input.get_unchecked(new_o) == c - 1 {
-                    *stack.get_unchecked_mut(stack_len).as_mut_ptr() = (new_o, c - 1);
-                    stack_len += 1;
+                let l = curr_o.wrapping_sub(1);
+                let r = curr_o.wrapping_add(1);
+                let t = curr_o.wrapping_sub(line_len);
+                let b = curr_o.wrapping_add(line_len);
+
+                macro_rules! handle {
+                    ($new_o:expr) => {{
+                        let new_o = $new_o;
+                        if *input.get_unchecked(new_o) == c - 1 {
+                            *stack.get_unchecked_mut(stack_len).as_mut_ptr() = (new_o, c - 1);
+                            stack_len += 1;
+                        }
+                    }};
                 }
-                let new_o = curr_o.wrapping_add(1);
-                if new_o < len && *input.get_unchecked(new_o) == c - 1 {
-                    *stack.get_unchecked_mut(stack_len).as_mut_ptr() = (new_o, c - 1);
-                    stack_len += 1;
-                }
-                let new_o = curr_o.wrapping_sub(line_len);
-                if new_o < len && *input.get_unchecked(new_o) == c - 1 {
-                    *stack.get_unchecked_mut(stack_len).as_mut_ptr() = (new_o, c - 1);
-                    stack_len += 1;
-                }
-                let new_o = curr_o.wrapping_add(line_len);
-                if new_o < len && *input.get_unchecked(new_o) == c - 1 {
-                    (curr_o, c) = (new_o, c - 1);
-                } else {
-                    if stack_len > 0 {
-                        stack_len -= 1;
-                        (curr_o, c) = *stack.get_unchecked(stack_len).as_ptr();
-                    } else {
-                        break;
+
+                if t < len {
+                    handle!(t);
+                    handle!(l);
+                    if b < len {
+                        handle!(b);
                     }
+                } else {
+                    handle!(b);
+                    if l < len {
+                        handle!(l);
+                    }
+                }
+                if *input.get_unchecked(r) == c - 1 {
+                    (curr_o, c) = (r, c - 1);
+                } else if stack_len > 0 {
+                    stack_len -= 1;
+                    (curr_o, c) = stack.get_unchecked(stack_len).assume_init();
+                } else {
+                    break;
                 }
             }
 
@@ -139,14 +148,17 @@ unsafe fn inner_part2(input: &str) -> u64 {
             let o = mask.trailing_zeros();
             mask &= !(1 << o);
 
-            let mut seen1 = u16x16::from_slice(&[u16::MAX; 16]);
             let mut counts1 = [MaybeUninit::uninit(); 16];
+            let mut counts2 = [MaybeUninit::uninit(); 16];
+
+            let mut seen1 = u16x16::from_slice(&[u16::MAX; 16]);
+            let mut counts1 = &mut counts1;
             let mut len1 = 1;
             seen1[0] = offset as u16 + o as u16;
             counts1[0] = MaybeUninit::new(1);
 
             let mut seen2 = u16x16::from_slice(&[u16::MAX; 16]);
-            let mut counts2 = [MaybeUninit::uninit(); 16];
+            let mut counts2 = &mut counts2;
             let mut len2 = 0;
 
             for c in (b'1'..b'8' + 1).rev() {
@@ -157,7 +169,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
                     macro_rules! handle {
                         ($new_o:expr) => {{
                             let new_o = $new_o;
-                            if new_o < len && *input.get_unchecked(new_o as usize) == c {
+                            if *input.get_unchecked(new_o as usize) == c {
                                 if let Some(idx) =
                                     seen2.simd_eq(u16x16::splat(new_o as u16)).first_set()
                                 {
@@ -171,18 +183,30 @@ unsafe fn inner_part2(input: &str) -> u64 {
                         }};
                     }
 
-                    handle!(curr_o.wrapping_sub(1));
-                    handle!(curr_o.wrapping_add(1));
-                    handle!(curr_o.wrapping_sub(line_len));
-                    handle!(curr_o.wrapping_add(line_len));
+                    let l = curr_o.wrapping_sub(1);
+                    let r = curr_o.wrapping_add(1);
+                    let t = curr_o.wrapping_sub(line_len);
+                    let b = curr_o.wrapping_add(line_len);
+
+                    handle!(r);
+                    if t < len {
+                        handle!(t);
+                        handle!(l);
+                        if b < len {
+                            handle!(b);
+                        }
+                    } else {
+                        handle!(b);
+                        if l < len {
+                            handle!(l);
+                        }
+                    }
                 }
 
+                std::mem::swap(&mut counts1, &mut counts2);
                 seen1 = seen2;
-                counts1 = counts2;
                 len1 = len2;
-
                 seen2 = u16x16::from_slice(&[u16::MAX; 16]);
-                counts2 = [MaybeUninit::uninit(); 16];
                 len2 = 0;
             }
 
