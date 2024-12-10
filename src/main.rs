@@ -1,5 +1,5 @@
 fn bench<D: std::fmt::Display>(mut f: impl FnMut() -> D) {
-    let n = if cfg!(debug_assertions) { 1 } else { 100 };
+    let n = if cfg!(debug_assertions) { 1 } else { 10000 };
     let now = std::time::Instant::now();
     for _ in 0..n - 1 {
         f();
@@ -20,6 +20,6 @@ macro_rules! run {
 }
 
 fn main() {
-    bench(|| run!(day9, part1));
-    bench(|| run!(day9, part2));
+    bench(|| run!(day10, part1));
+    bench(|| run!(day10, part2));
 }
