@@ -126,7 +126,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
     tot as u64
 }
 
-const MASK: [usize; 32] = {
+const SWIZZLE_MAP: [usize; 32] = {
     let mut mask = [0; 32];
     let mut i = 0;
     while i < 31 {
@@ -135,6 +135,20 @@ const MASK: [usize; 32] = {
     }
     mask[31] = 31 + 32;
     mask
+};
+
+const EXTRA_MASKS: [[i8; 32]; 32] = {
+    let mut masks = [[0; 32]; 32];
+    let mut i = 0;
+    while i < 32 {
+        let mut j = i;
+        while j < 32 {
+            masks[i][j] = -1;
+            j += 1;
+        }
+        i += 1;
+    }
+    masks
 };
 
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
@@ -238,13 +252,12 @@ unsafe fn inner_part2(input: &str) -> u64 {
             let mut xb = u8x32::from_slice(count.get_unchecked(ob..ob + 32));
             let mut xc = u8x32::from_slice(count.get_unchecked(oc..oc + 32));
 
-            xa += (a2 & b1).to_int().cast() & xb;
-            xa += (a2 & c1).to_int().cast() & xc;
+            xa += a2.to_int().cast() & ((b1.to_int().cast() & xb) + (c1.to_int().cast() & xc));
 
-            xb = simd_swizzle!(xa, xb, MASK);
+            xb = simd_swizzle!(xa, xb, SWIZZLE_MAP);
 
-            xb += (b2 & a1).to_int().cast() & xa;
-            xc += (c2 & a1).to_int().cast() & xa;
+            xb += xa & a1.to_int().cast() & b2.to_int().cast();
+            xc += xa & a1.to_int().cast() & c2.to_int().cast();
 
             *count.as_mut_ptr().cast::<u8>().add(oa) = xa[0];
             xb.copy_to_slice(count.get_unchecked_mut(ob..ob + 32));
@@ -254,7 +267,8 @@ unsafe fn inner_part2(input: &str) -> u64 {
         }
         let extra = (off + ll + 1 + 32) - input.len();
         if extra != 32 {
-            let mask = mask8x32::from_bitmask(u64::MAX << extra);
+            let mask =
+                mask8x32::from_int_unchecked(i8x32::from_slice(EXTRA_MASKS.get_unchecked(extra)));
             off = input.len() - (ll + 1 + 32);
 
             let oa = off;
@@ -276,13 +290,13 @@ unsafe fn inner_part2(input: &str) -> u64 {
             let mut xb = u8x32::from_slice(count.get_unchecked(ob..ob + 32));
             let mut xc = u8x32::from_slice(count.get_unchecked(oc..oc + 32));
 
-            xa += (a2 & b1 & mask).to_int().cast() & xb;
-            xa += (a2 & c1 & mask).to_int().cast() & xc;
+            xa += (mask & a2).to_int().cast()
+                & ((b1.to_int().cast() & xb) + (c1.to_int().cast() & xc));
 
-            xb = simd_swizzle!(xa, xb, MASK);
+            xb = simd_swizzle!(xa, xb, SWIZZLE_MAP);
 
-            xb += (b2 & a1 & mask).to_int().cast() & xa;
-            xc += (c2 & a1 & mask).to_int().cast() & xa;
+            xb += xa & (a1 & mask).to_int().cast() & b2.to_int().cast();
+            xc += xa & (a1 & mask).to_int().cast() & c2.to_int().cast();
 
             *count.as_mut_ptr().cast::<u8>().add(oa) = xa[0];
             xb.copy_to_slice(count.get_unchecked_mut(ob..ob + 32));
@@ -307,7 +321,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
             xa += (a2 & b1).to_int().cast() & xb;
 
-            xb = simd_swizzle!(xa, xb, MASK);
+            xb = simd_swizzle!(xa, xb, SWIZZLE_MAP);
 
             xb += (b2 & a1).to_int().cast() & xa;
 
@@ -319,7 +333,8 @@ unsafe fn inner_part2(input: &str) -> u64 {
         let extra = (off + 1 + 32) - input.len();
         if extra != 32 {
             debug_assert!(extra < 32);
-            let mask = mask8x32::from_bitmask(u64::MAX << extra);
+            let mask =
+                mask8x32::from_int_unchecked(i8x32::from_slice(EXTRA_MASKS.get_unchecked(extra)));
             off = input.len() - 32 - 1;
 
             let oa = off;
@@ -338,7 +353,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
             xa += (a2 & b1 & mask).to_int().cast() & xb;
 
-            xb = simd_swizzle!(xa, xb, MASK);
+            xb = simd_swizzle!(xa, xb, SWIZZLE_MAP);
 
             xb += (b2 & a1 & mask).to_int().cast() & xa;
 
@@ -455,17 +470,18 @@ unsafe fn inner_part2(input: &str) -> u64 {
             let xb = u8x32::from_slice(count.get_unchecked(ob..ob + 32));
             let xc = u8x32::from_slice(count.get_unchecked(oc..oc + 32));
 
-            tot += (a2 & b1).to_int().cast() & xb;
-            tot += (a2 & c1).to_int().cast() & xc;
-            tot += (b2 & a1).to_int().cast() & xa;
-            tot += (c2 & a1).to_int().cast() & xa;
+            tot += xb & b1.to_int().cast() & a2.to_int().cast();
+            tot += xc & c1.to_int().cast() & a2.to_int().cast();
+            tot += xa & a1.to_int().cast() & b2.to_int().cast();
+            tot += xa & a1.to_int().cast() & c2.to_int().cast();
 
             off += 32;
         }
         let extra = (off + ll + 1 + 32) - input.len();
         if extra != 32 {
             debug_assert!(extra < 32);
-            let mask = mask8x32::from_bitmask(u64::MAX << extra);
+            let mask =
+                mask8x32::from_int_unchecked(i8x32::from_slice(EXTRA_MASKS.get_unchecked(extra)));
             off = input.len() - (ll + 1 + 32);
 
             let oa = off;
@@ -487,10 +503,10 @@ unsafe fn inner_part2(input: &str) -> u64 {
             let xb = u8x32::from_slice(count.get_unchecked(ob..ob + 32));
             let xc = u8x32::from_slice(count.get_unchecked(oc..oc + 32));
 
-            tot += (a2 & b1 & mask).to_int().cast() & xb;
-            tot += (a2 & c1 & mask).to_int().cast() & xc;
-            tot += (b2 & a1 & mask).to_int().cast() & xa;
-            tot += (c2 & a1 & mask).to_int().cast() & xa;
+            tot += xb & mask.to_int().cast() & b1.to_int().cast() & a2.to_int().cast();
+            tot += xc & mask.to_int().cast() & c1.to_int().cast() & a2.to_int().cast();
+            tot += xa & mask.to_int().cast() & a1.to_int().cast() & b2.to_int().cast();
+            tot += xa & mask.to_int().cast() & a1.to_int().cast() & c2.to_int().cast();
         }
 
         off = input.len() - ll;
@@ -517,7 +533,8 @@ unsafe fn inner_part2(input: &str) -> u64 {
         let extra = (off + 1 + 32) - input.len();
         if extra != 32 {
             debug_assert!(extra < 32);
-            let mask = mask8x32::from_bitmask(u64::MAX << extra);
+            let mask =
+                mask8x32::from_int_unchecked(i8x32::from_slice(EXTRA_MASKS.get_unchecked(extra)));
             off = input.len() - 32 - 1;
 
             let oa = off;
