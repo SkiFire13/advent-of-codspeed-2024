@@ -1,0 +1,35 @@
+name: Run benchmark
+on:
+    push:
+        branches:
+            - "bench"
+    workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup rust toolchain, cache and cargo-codspeed binary
+        uses: moonrepo/setup-rust@v1
+        with:
+          cache-target: release
+          bins: cargo-codspeed
+          profile: minimal
+
+      - name: Build the benches
+        working-directory: .
+        run: cargo codspeed build
+
+      - name: Run the benchmarks
+        uses: CodSpeedHQ/action@v3.2.0
+        with:
+          working-directory: .
+          token: ${{ secrets.CODSPEED_TOKEN }}
+          run: |
+            cargo codspeed run bench
