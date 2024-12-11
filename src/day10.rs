@@ -169,10 +169,14 @@ unsafe fn inner_part2(input: &str) -> u64 {
         let mut off = 0;
         while off + 32 <= input.len() {
             let block = u8x32::from_slice(input.get_unchecked(off..off + 32));
-            let mask = block.simd_eq(u8x32::splat(b'0'));
+
+            let mask0 = block.simd_eq(u8x32::splat(b'0'));
+            let b0 = mask0.to_int().cast() & u8x32::splat(1);
+            let mask9 = block.simd_eq(u8x32::splat(b'9'));
+            let b9 = mask9.to_int().cast() & u8x32::splat(1);
+
             let s = count.as_mut_ptr().cast::<u8>().add(off);
-            let b = mask.to_int().cast() & u8x32::splat(1);
-            *s.cast() = *b.as_array();
+            *s.cast() = *(b0 | b9).as_array();
 
             off += 32;
         }
@@ -182,17 +186,21 @@ unsafe fn inner_part2(input: &str) -> u64 {
             off = input.len() - 32;
 
             let block = u8x32::from_slice(input.get_unchecked(off..off + 32));
-            let mask = block.simd_eq(u8x32::splat(b'0'));
+
+            let mask0 = block.simd_eq(u8x32::splat(b'0'));
+            let b0 = mask0.to_int().cast() & u8x32::splat(1);
+            let mask9 = block.simd_eq(u8x32::splat(b'9'));
+            let b9 = mask9.to_int().cast() & u8x32::splat(1);
+
             let s = count.as_mut_ptr().cast::<u8>().add(off);
-            let b = mask.to_int().cast() & u8x32::splat(1);
-            *s.cast() = *b.as_array();
+            *s.cast() = *(b0 | b9).as_array();
         }
     }
 
     #[cfg(debug_assertions)]
     {
         for i in 0..input.len() {
-            if input[i] == b'0' {
+            if input[i] == b'0' || input[i] == b'9' {
                 count2[i] = 1;
             }
         }
@@ -225,11 +233,15 @@ unsafe fn inner_part2(input: &str) -> u64 {
         }
     }
 
-    for c1 in b'0'..b'8' {
+    for c1 in b'0'..b'4' {
         let c2 = c1 + 1;
+        let c3 = b'9' - (c1 - b'0');
+        let c4 = c3 - 1;
 
         let cs1 = u8x32::splat(c1);
         let cs2 = u8x32::splat(c2);
+        let cs3 = u8x32::splat(c3);
+        let cs4 = u8x32::splat(c4);
         let mut off = 0;
 
         while off + ll + 1 + 32 <= input.len() {
@@ -243,21 +255,31 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
             let a1 = a.simd_eq(cs1);
             let a2 = a.simd_eq(cs2);
+            let a3 = a.simd_eq(cs3);
+            let a4 = a.simd_eq(cs4);
             let b1 = b.simd_eq(cs1);
             let b2 = b.simd_eq(cs2);
+            let b3 = b.simd_eq(cs3);
+            let b4 = b.simd_eq(cs4);
             let c1 = c.simd_eq(cs1);
             let c2 = c.simd_eq(cs2);
+            let c3 = c.simd_eq(cs3);
+            let c4 = c.simd_eq(cs4);
 
             let mut xa = u8x32::from_slice(count.get_unchecked(oa..oa + 32));
             let mut xb = u8x32::from_slice(count.get_unchecked(ob..ob + 32));
             let mut xc = u8x32::from_slice(count.get_unchecked(oc..oc + 32));
 
             xa += a2.to_int().cast() & ((b1.to_int().cast() & xb) + (c1.to_int().cast() & xc));
+            xa += a4.to_int().cast() & ((b3.to_int().cast() & xb) + (c3.to_int().cast() & xc));
 
             xb = simd_swizzle!(xa, xb, SWIZZLE_MAP);
 
             xb += xa & a1.to_int().cast() & b2.to_int().cast();
             xc += xa & a1.to_int().cast() & c2.to_int().cast();
+
+            xb += xa & a3.to_int().cast() & b4.to_int().cast();
+            xc += xa & a3.to_int().cast() & c4.to_int().cast();
 
             *count.as_mut_ptr().cast::<u8>().add(oa) = xa[0];
             xb.copy_to_slice(count.get_unchecked_mut(ob..ob + 32));
@@ -281,10 +303,16 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
             let a1 = a.simd_eq(cs1);
             let a2 = a.simd_eq(cs2);
+            let a3 = a.simd_eq(cs3);
+            let a4 = a.simd_eq(cs4);
             let b1 = b.simd_eq(cs1);
             let b2 = b.simd_eq(cs2);
+            let b3 = b.simd_eq(cs3);
+            let b4 = b.simd_eq(cs4);
             let c1 = c.simd_eq(cs1);
             let c2 = c.simd_eq(cs2);
+            let c3 = c.simd_eq(cs3);
+            let c4 = c.simd_eq(cs4);
 
             let mut xa = u8x32::from_slice(count.get_unchecked(oa..oa + 32));
             let mut xb = u8x32::from_slice(count.get_unchecked(ob..ob + 32));
@@ -292,11 +320,16 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
             xa += (mask & a2).to_int().cast()
                 & ((b1.to_int().cast() & xb) + (c1.to_int().cast() & xc));
+            xa += (mask & a4).to_int().cast()
+                & ((b3.to_int().cast() & xb) + (c3.to_int().cast() & xc));
 
             xb = simd_swizzle!(xa, xb, SWIZZLE_MAP);
 
             xb += xa & (a1 & mask).to_int().cast() & b2.to_int().cast();
             xc += xa & (a1 & mask).to_int().cast() & c2.to_int().cast();
+
+            xb += xa & (a3 & mask).to_int().cast() & b4.to_int().cast();
+            xc += xa & (a3 & mask).to_int().cast() & c4.to_int().cast();
 
             *count.as_mut_ptr().cast::<u8>().add(oa) = xa[0];
             xb.copy_to_slice(count.get_unchecked_mut(ob..ob + 32));
@@ -313,17 +346,23 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
             let a1 = a.simd_eq(cs1);
             let a2 = a.simd_eq(cs2);
+            let a3 = a.simd_eq(cs3);
+            let a4 = a.simd_eq(cs4);
             let b1 = b.simd_eq(cs1);
             let b2 = b.simd_eq(cs2);
+            let b3 = b.simd_eq(cs3);
+            let b4 = b.simd_eq(cs4);
 
             let mut xa = u8x32::from_slice(count.get_unchecked(oa..oa + 32));
             let mut xb = u8x32::from_slice(count.get_unchecked(ob..ob + 32));
 
             xa += (a2 & b1).to_int().cast() & xb;
+            xa += (a4 & b3).to_int().cast() & xb;
 
             xb = simd_swizzle!(xa, xb, SWIZZLE_MAP);
 
             xb += (b2 & a1).to_int().cast() & xa;
+            xb += (b4 & a3).to_int().cast() & xa;
 
             *count.as_mut_ptr().cast::<u8>().add(oa) = xa[0];
             xb.copy_to_slice(count.get_unchecked_mut(ob..ob + 32));
@@ -345,17 +384,23 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
             let a1 = a.simd_eq(cs1);
             let a2 = a.simd_eq(cs2);
+            let a3 = a.simd_eq(cs3);
+            let a4 = a.simd_eq(cs4);
             let b1 = b.simd_eq(cs1);
             let b2 = b.simd_eq(cs2);
+            let b3 = b.simd_eq(cs3);
+            let b4 = b.simd_eq(cs4);
 
             let mut xa = u8x32::from_slice(count.get_unchecked(oa..oa + 32));
             let mut xb = u8x32::from_slice(count.get_unchecked(ob..ob + 32));
 
             xa += (a2 & b1 & mask).to_int().cast() & xb;
+            xa += (a4 & b3 & mask).to_int().cast() & xb;
 
             xb = simd_swizzle!(xa, xb, SWIZZLE_MAP);
 
             xb += (b2 & a1 & mask).to_int().cast() & xa;
+            xb += (b4 & a3 & mask).to_int().cast() & xa;
 
             *count.as_mut_ptr().cast::<u8>().add(oa) = xa[0];
             xb.copy_to_slice(count.get_unchecked_mut(ob..ob + 32));
@@ -363,9 +408,10 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
         #[cfg(debug_assertions)]
         {
-            let c1 = c1;
-            let c2 = c2;
-            println!("{}-{} v2", c1 as char, c2 as char);
+            println!(
+                "{}-{} + {}-{} v2",
+                c1 as char, c2 as char, c3 as char, c4 as char
+            );
             for i in 0..input.len() {
                 if input[i] == c2 {
                     let j = i.wrapping_sub(1);
@@ -382,6 +428,23 @@ unsafe fn inner_part2(input: &str) -> u64 {
                     }
                     let j = i.wrapping_add(ll);
                     if j < input.len() && input[j] == c1 {
+                        count2[i] += count2[j];
+                    }
+                } else if input[i] == c4 {
+                    let j = i.wrapping_sub(1);
+                    if j < input.len() && input[j] == c3 {
+                        count2[i] += count2[j];
+                    }
+                    let j = i.wrapping_add(1);
+                    if j < input.len() && input[j] == c3 {
+                        count2[i] += count2[j];
+                    }
+                    let j = i.wrapping_sub(ll);
+                    if j < input.len() && input[j] == c3 {
+                        count2[i] += count2[j];
+                    }
+                    let j = i.wrapping_add(ll);
+                    if j < input.len() && input[j] == c3 {
                         count2[i] += count2[j];
                     }
                 }
@@ -419,29 +482,29 @@ unsafe fn inner_part2(input: &str) -> u64 {
     #[cfg(debug_assertions)]
     {
         for i in 0..input.len() {
-            if input[i] == b'9' {
+            if input[i] == b'4' {
                 let j = i.wrapping_sub(1);
-                if j < input.len() && input[j] == b'8' {
-                    tot_exp += count2[j] as u16;
+                if j < input.len() && input[j] == b'5' {
+                    tot_exp += (count2[i] * count2[j]) as u16;
                 }
                 let j = i.wrapping_add(1);
-                if j < input.len() && input[j] == b'8' {
-                    tot_exp += count2[j] as u16;
+                if j < input.len() && input[j] == b'5' {
+                    tot_exp += (count2[i] * count2[j]) as u16;
                 }
                 let j = i.wrapping_sub(ll);
-                if j < input.len() && input[j] == b'8' {
-                    tot_exp += count2[j] as u16;
+                if j < input.len() && input[j] == b'5' {
+                    tot_exp += (count2[i] * count2[j]) as u16;
                 }
                 let j = i.wrapping_add(ll);
-                if j < input.len() && input[j] == b'8' {
-                    tot_exp += count2[j] as u16;
+                if j < input.len() && input[j] == b'5' {
+                    tot_exp += (count2[i] * count2[j]) as u16;
                 }
             }
         }
     }
 
     {
-        let c1 = b'8';
+        let c1 = b'4';
         let c2 = c1 + 1;
 
         let cs1 = u8x32::splat(c1);
@@ -470,10 +533,10 @@ unsafe fn inner_part2(input: &str) -> u64 {
             let xb = u8x32::from_slice(count.get_unchecked(ob..ob + 32));
             let xc = u8x32::from_slice(count.get_unchecked(oc..oc + 32));
 
-            tot += xb & b1.to_int().cast() & a2.to_int().cast();
-            tot += xc & c1.to_int().cast() & a2.to_int().cast();
-            tot += xa & a1.to_int().cast() & b2.to_int().cast();
-            tot += xa & a1.to_int().cast() & c2.to_int().cast();
+            tot += (xa * xb) & b1.to_int().cast() & a2.to_int().cast();
+            tot += (xa * xc) & c1.to_int().cast() & a2.to_int().cast();
+            tot += (xa * xb) & a1.to_int().cast() & b2.to_int().cast();
+            tot += (xa * xc) & a1.to_int().cast() & c2.to_int().cast();
 
             off += 32;
         }
@@ -503,10 +566,10 @@ unsafe fn inner_part2(input: &str) -> u64 {
             let xb = u8x32::from_slice(count.get_unchecked(ob..ob + 32));
             let xc = u8x32::from_slice(count.get_unchecked(oc..oc + 32));
 
-            tot += xb & mask.to_int().cast() & b1.to_int().cast() & a2.to_int().cast();
-            tot += xc & mask.to_int().cast() & c1.to_int().cast() & a2.to_int().cast();
-            tot += xa & mask.to_int().cast() & a1.to_int().cast() & b2.to_int().cast();
-            tot += xa & mask.to_int().cast() & a1.to_int().cast() & c2.to_int().cast();
+            tot += (xa * xb) & mask.to_int().cast() & b1.to_int().cast() & a2.to_int().cast();
+            tot += (xa * xc) & mask.to_int().cast() & c1.to_int().cast() & a2.to_int().cast();
+            tot += (xa * xb) & mask.to_int().cast() & a1.to_int().cast() & b2.to_int().cast();
+            tot += (xa * xc) & mask.to_int().cast() & a1.to_int().cast() & c2.to_int().cast();
         }
 
         off = input.len() - ll;
@@ -525,8 +588,8 @@ unsafe fn inner_part2(input: &str) -> u64 {
             let xa = u8x32::from_slice(count.get_unchecked(oa..oa + 32));
             let xb = u8x32::from_slice(count.get_unchecked(ob..ob + 32));
 
-            tot += (a2 & b1).to_int().cast() & xb;
-            tot += (b2 & a1).to_int().cast() & xa;
+            tot += (a2 & b1).to_int().cast() & (xa * xb);
+            tot += (b2 & a1).to_int().cast() & (xa * xb);
 
             off += 32;
         }
@@ -551,8 +614,8 @@ unsafe fn inner_part2(input: &str) -> u64 {
             let xa = u8x32::from_slice(count.get_unchecked(oa..oa + 32));
             let xb = u8x32::from_slice(count.get_unchecked(ob..ob + 32));
 
-            tot += (a2 & b1 & mask).to_int().cast() & xb;
-            tot += (b2 & a1 & mask).to_int().cast() & xa;
+            tot += (a2 & b1 & mask).to_int().cast() & (xa * xb);
+            tot += (b2 & a1 & mask).to_int().cast() & (xa * xb);
         }
 
         #[cfg(debug_assertions)]
