@@ -9,8 +9,8 @@ pub fn run(input: &str) -> i64 {
 }
 
 #[inline(always)]
-pub fn part1(input: &str) -> u32 {
-    unsafe { inner_part1(input) }
+pub fn part1(input: &str) -> u64 {
+    unsafe { inner_part1(input) as u64 }
 }
 
 #[inline(always)]
@@ -23,7 +23,7 @@ pub fn part2(input: &str) -> u64 {
 unsafe fn inner_part1(input: &str) -> u32 {
     type Ty = u32;
 
-    let mut tot = 0;
+    let mut tot = 0u32;
 
     let lut = include_bytes!(concat!(env!("OUT_DIR"), "/d11p1.lut"))
         .as_ptr()
@@ -34,57 +34,19 @@ unsafe fn inner_part1(input: &str) -> u32 {
     "2:",
         "movzx   {n}, byte ptr [{ptr}]",
         "movzx   {d}, byte ptr [{ptr} + 1]",
-        "sub     {n}, {b0}",
-        "sub     {d}, {b0}",
+        "add     {n}, {b0}",
+        "add     {d}, {b0}",
         "add     {ptr}, 2",
         "cmp     {d}, 9",
         "ja      4f",
-        
+    "3:",
         "lea     {n}, [{n} + 4*{n}]",
         "lea     {n}, [{d} + 2*{n}]",
         "movzx   {d}, byte ptr [{ptr}]",
-        "sub     {d}, {b0}",
+        "add     {d}, {b0}",
         "inc     {ptr}",
-        "cmp     {d}, 9",
-        "ja      4f",
-
-        "lea     {n}, [{n} + 4*{n}]",
-        "lea     {n}, [{d} + 2*{n}]",
-        "movzx   {d}, byte ptr [{ptr}]",
-        "sub     {d}, {b0}",
-        "inc     {ptr}",
-        "cmp     {d}, 9",
-        "ja      4f",
-
-        "lea     {n}, [{n} + 4*{n}]",
-        "lea     {n}, [{d} + 2*{n}]",
-        "movzx   {d}, byte ptr [{ptr}]",
-        "sub     {d}, {b0}",
-        "inc     {ptr}",
-        "cmp     {d}, 9",
-        "ja      4f",
-
-        "lea     {n}, [{n} + 4*{n}]",
-        "lea     {n}, [{d} + 2*{n}]",
-        "movzx   {d}, byte ptr [{ptr}]",
-        "sub     {d}, {b0}",
-        "inc     {ptr}",
-        "cmp     {d}, 9",
-        "ja      4f",
-
-        "lea     {n}, [{n} + 4*{n}]",
-        "lea     {n}, [{d} + 2*{n}]",
-        "movzx   {d}, byte ptr [{ptr}]",
-        "sub     {d}, {b0}",
-        "inc     {ptr}",
-        "cmp     {d}, 9",
-        "ja      4f",
-
-        "lea     {n}, [{n} + 4*{n}]",
-        "lea     {n}, [{d} + 2*{n}]",
-        "movzx   {d}, byte ptr [{ptr}]",
-        "sub     {d}, {b0}",
-        "inc     {ptr}",
+        "cmp     {d}, 10",
+        "jb      3b",
     "4:",
         "add     {tot:e}, dword ptr [{lut} + {s}*{n}]",
         "cmp     {ptr}, {end}",
@@ -96,7 +58,7 @@ unsafe fn inner_part1(input: &str) -> u32 {
         n = out(reg) _,
         d = out(reg) _,
         s = const std::mem::size_of::<Ty>(),
-        b0 = const b'0' as u64
+        b0 = const -(b'0' as i8) as u64
     );
 
     tot
@@ -118,57 +80,19 @@ unsafe fn inner_part2(input: &str) -> u64 {
     "2:",
         "movzx   {n}, byte ptr [{ptr}]",
         "movzx   {d}, byte ptr [{ptr} + 1]",
-        "sub     {n}, {b0}",
-        "sub     {d}, {b0}",
+        "add     {n}, {b0}",
+        "add     {d}, {b0}",
         "add     {ptr}, 2",
         "cmp     {d}, 9",
         "ja      4f",
-        
+    "3:",
         "lea     {n}, [{n} + 4*{n}]",
         "lea     {n}, [{d} + 2*{n}]",
         "movzx   {d}, byte ptr [{ptr}]",
-        "sub     {d}, {b0}",
+        "add     {d}, {b0}",
         "inc     {ptr}",
-        "cmp     {d}, 9",
-        "ja      4f",
-
-        "lea     {n}, [{n} + 4*{n}]",
-        "lea     {n}, [{d} + 2*{n}]",
-        "movzx   {d}, byte ptr [{ptr}]",
-        "sub     {d}, {b0}",
-        "inc     {ptr}",
-        "cmp     {d}, 9",
-        "ja      4f",
-
-        "lea     {n}, [{n} + 4*{n}]",
-        "lea     {n}, [{d} + 2*{n}]",
-        "movzx   {d}, byte ptr [{ptr}]",
-        "sub     {d}, {b0}",
-        "inc     {ptr}",
-        "cmp     {d}, 9",
-        "ja      4f",
-
-        "lea     {n}, [{n} + 4*{n}]",
-        "lea     {n}, [{d} + 2*{n}]",
-        "movzx   {d}, byte ptr [{ptr}]",
-        "sub     {d}, {b0}",
-        "inc     {ptr}",
-        "cmp     {d}, 9",
-        "ja      4f",
-
-        "lea     {n}, [{n} + 4*{n}]",
-        "lea     {n}, [{d} + 2*{n}]",
-        "movzx   {d}, byte ptr [{ptr}]",
-        "sub     {d}, {b0}",
-        "inc     {ptr}",
-        "cmp     {d}, 9",
-        "ja      4f",
-
-        "lea     {n}, [{n} + 4*{n}]",
-        "lea     {n}, [{d} + 2*{n}]",
-        "movzx   {d}, byte ptr [{ptr}]",
-        "sub     {d}, {b0}",
-        "inc     {ptr}",
+        "cmp     {d}, 10",
+        "jb      3b",
     "4:",
         "add     {tot}, qword ptr [{lut} + {s}*{n}]",
         "cmp     {ptr}, {end}",
@@ -180,7 +104,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
         n = out(reg) _,
         d = out(reg) _,
         s = const std::mem::size_of::<Ty>(),
-        b0 = const b'0' as u64
+        b0 = const -(b'0' as i8) as u64
     );
 
     tot
