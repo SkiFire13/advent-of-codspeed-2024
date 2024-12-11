@@ -57,7 +57,7 @@ fn make_d11_lut(iters: usize, bytes: usize, path: &Path) {
     let mut out = BufWriter::new(File::create(path).unwrap());
     for j in 0..10_000_000 {
         let n = solve_rec(iters, j, &mut levels);
-        out.write(&n.to_ne_bytes()).unwrap();
+        out.write(&n.to_ne_bytes()[..bytes]).unwrap();
     }
     out.flush().unwrap();
 }
