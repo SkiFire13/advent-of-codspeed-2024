@@ -11,7 +11,7 @@ fn main() {
 
     make_d11_lut(
         25,
-        8,
+        4,
         &Path::new(&std::env::var("OUT_DIR").unwrap()).join("d11p1.lut"),
     );
     make_d11_lut(
