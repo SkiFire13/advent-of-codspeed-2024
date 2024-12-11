@@ -11,17 +11,22 @@ fn main() {
 
     make_d11_lut(
         25,
+        8,
         &Path::new(&std::env::var("OUT_DIR").unwrap()).join("d11p1.lut"),
     );
     make_d11_lut(
         75,
+        8,
         &Path::new(&std::env::var("OUT_DIR").unwrap()).join("d11p2.lut"),
     );
 }
 
-fn make_d11_lut(iters: usize, path: &Path) {
+fn make_d11_lut(iters: usize, bytes: usize, path: &Path) {
     if path.exists() {
-        return;
+        let metadata = std::fs::metadata(path).unwrap();
+        if metadata.len() as usize == bytes * 10_000_000 {
+            return;
+        }
     }
 
     let mut levels = vec![HashMap::new(); iters];
