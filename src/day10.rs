@@ -8,7 +8,7 @@ use std::mem::MaybeUninit;
 use std::simd::prelude::*;
 
 pub fn run(input: &str) -> i64 {
-    part2(input) as i64
+    part1(input) as i64
 }
 
 #[inline(always)]
@@ -89,16 +89,22 @@ unsafe fn inner_part1(input: &str) -> u64 {
                     }};
                 }
 
-                if t < len {
+                if t < len - 2 * line_len {
                     handle!(t);
-                    handle!(l);
-                    if b < len {
-                        handle!(b);
-                    }
-                } else {
                     handle!(b);
-                    if l < len {
+                    handle!(l);
+                } else {
+                    if t < len {
+                        handle!(t);
                         handle!(l);
+                        if b < len {
+                            handle!(b);
+                        }
+                    } else {
+                        handle!(b);
+                        if l < len {
+                            handle!(l);
+                        }
                     }
                 }
                 if *input.get_unchecked(r) == c - 1 {
@@ -181,16 +187,22 @@ unsafe fn inner_part2(input: &str) -> u64 {
                     }};
                 }
 
-                if t < len {
+                if t < len - 2 * line_len {
                     handle!(t);
-                    handle!(l);
-                    if b < len {
-                        handle!(b);
-                    }
-                } else {
                     handle!(b);
-                    if l < len {
+                    handle!(l);
+                } else {
+                    if t < len {
+                        handle!(t);
                         handle!(l);
+                        if b < len {
+                            handle!(b);
+                        }
+                    } else {
+                        handle!(b);
+                        if l < len {
+                            handle!(l);
+                        }
                     }
                 }
                 if *input.get_unchecked(r) == c - 1 {
