@@ -121,66 +121,78 @@ unsafe fn inner_part1(input: &str) -> u64 {
         }
     }
 
+    let mut uf = [MaybeUninit::<(usize, usize)>::uninit(); 141 + 140 * 141];
+    let uf = uf.as_mut_ptr().cast::<(usize, usize)>();
     let mut tot = 0;
-    let mut stack = [MaybeUninit::uninit(); 128];
-    let mut stack_len = 0;
     let mut off = 141;
 
-    while off < 141 + 140 * 141 {
-        let Some(idx) = u8x32::from_slice(input.get_unchecked(off..off + 32))
-            .simd_ne(u8x32::splat(b'\n'))
-            .first_set()
-        else {
-            off += 32;
-            continue;
-        };
-        off += idx;
+    let mut goal = 141 + 140;
 
-        let c = *input.get_unchecked(off);
-        *input.get_unchecked_mut(off) = b'\n';
+    while goal < 141 + 140 * 141 {
+        while off < goal {
+            let c = *input.get_unchecked(off);
+            debug_assert_ne!(c, b'\n');
+            let e = *edges.get_unchecked(off) as u8 as usize;
 
-        let mut curr_off = off;
-        let mut area = 0;
-        let mut perimeter = 0;
+            if *input.get_unchecked(off - 1) == c {
+                let mut root = off - 1;
+                let mut t = &mut *uf.add(root);
+                if t.0 == 0 {
+                    root = t.1 as usize;
+                    t = &mut *uf.add(root);
+                }
+                debug_assert_ne!((*uf.add(root)).0, 0);
+                t.0 += 1;
+                tot += t.0 * e + t.1;
+                t.1 += e;
+                *uf.add(off) = (0, root);
 
-        loop {
-            area += 1;
-            perimeter += *edges.get_unchecked(curr_off) as u8 as u64;
-
-            macro_rules! handle {
-                ($off:expr) => {{
-                    let new_off = $off;
-                    if *input.get_unchecked(new_off) == c {
-                        *input.get_unchecked_mut(new_off) = b'\n';
-                        *stack.get_unchecked_mut(stack_len).as_mut_ptr() = new_off;
-                        stack_len += 1;
+                if *input.get_unchecked(off - 141) == c {
+                    'union: {
+                        let mut root2 = off - 141;
+                        if root != root2 {
+                            let mut t2 = &mut *uf.add(root2);
+                            while t2.0 == 0 {
+                                root2 = t2.1 as usize;
+                                if root != root2 {
+                                    t2 = &mut *uf.add(root2);
+                                } else {
+                                    break 'union;
+                                }
+                            }
+                            debug_assert_ne!((*uf.add(root2)).0, 0);
+                            tot += t.0 * t2.1 + t.1 * t2.0;
+                            t.0 += t2.0;
+                            t.1 += t2.1;
+                            *t2 = (0, root);
+                        }
                     }
-                }};
+                }
+            } else if *input.get_unchecked(off - 141) == c {
+                let mut root = off - 141;
+                let mut t = &mut *uf.add(root);
+                while t.0 == 0 {
+                    root = t.1 as usize;
+                    t = &mut *uf.add(root);
+                }
+                debug_assert_ne!((*uf.add(root)).0, 0);
+                t.0 += 1;
+                tot += t.0 * e + t.1;
+                t.1 += e;
+                *uf.add(off) = (0, root);
+            } else {
+                *uf.add(off) = (1, e);
+                tot += e;
             }
 
-            handle!(curr_off + 1);
-            handle!(curr_off + 141);
-            handle!(curr_off - 141);
-            let new_off = curr_off - 1;
-            if *input.get_unchecked(new_off) == c {
-                *input.get_unchecked_mut(new_off) = b'\n';
-                curr_off = new_off;
-                continue;
-            }
-
-            if stack_len == 0 {
-                break;
-            }
-            stack_len -= 1;
-            curr_off = *stack.get_unchecked(stack_len).as_ptr();
+            off += 1;
         }
-
-        tot += area * perimeter;
-
+        debug_assert_eq!(*input.get_unchecked(off), b'\n');
         off += 1;
+        goal += 141;
     }
 
-    tot
+    tot as u64
 }
 
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
@@ -293,64 +305,76 @@ unsafe fn inner_part2(input: &str) -> u64 {
         }
     }
 
+    let mut uf = [MaybeUninit::<(usize, usize)>::uninit(); 141 + 140 * 141];
+    let uf = uf.as_mut_ptr().cast::<(usize, usize)>();
     let mut tot = 0;
-    let mut stack = [MaybeUninit::uninit(); 128];
-    let mut stack_len = 0;
     let mut off = 141;
 
-    while off < 141 + 140 * 141 {
-        let Some(idx) = u8x32::from_slice(input.get_unchecked(off..off + 32))
-            .simd_ne(u8x32::splat(b'\n'))
-            .first_set()
-        else {
-            off += 32;
-            continue;
-        };
-        off += idx;
+    let mut goal = 141 + 140;
 
-        let c = *input.get_unchecked(off);
-        *input.get_unchecked_mut(off) = b'\n';
+    while goal < 141 + 140 * 141 {
+        while off < goal {
+            let c = *input.get_unchecked(off);
+            debug_assert_ne!(c, b'\n');
+            let e = *corners.get_unchecked(off) as u8 as usize;
 
-        let mut curr_off = off;
-        let mut area = 0;
-        let mut perimeter = 0;
+            if *input.get_unchecked(off - 1) == c {
+                let mut root = off - 1;
+                let mut t = &mut *uf.add(root);
+                if t.0 == 0 {
+                    root = t.1 as usize;
+                    t = &mut *uf.add(root);
+                }
+                debug_assert_ne!((*uf.add(root)).0, 0);
+                t.0 += 1;
+                tot += t.0 * e + t.1;
+                t.1 += e;
+                *uf.add(off) = (0, root);
 
-        loop {
-            area += 1;
-            perimeter += *corners.get_unchecked(curr_off) as u8 as u64;
-
-            macro_rules! handle {
-                ($off:expr) => {{
-                    let new_off = $off;
-                    if *input.get_unchecked(new_off) == c {
-                        *input.get_unchecked_mut(new_off) = b'\n';
-                        *stack.get_unchecked_mut(stack_len).as_mut_ptr() = new_off;
-                        stack_len += 1;
+                if *input.get_unchecked(off - 141) == c {
+                    'union: {
+                        let mut root2 = off - 141;
+                        if root != root2 {
+                            let mut t2 = &mut *uf.add(root2);
+                            while t2.0 == 0 {
+                                root2 = t2.1 as usize;
+                                if root != root2 {
+                                    t2 = &mut *uf.add(root2);
+                                } else {
+                                    break 'union;
+                                }
+                            }
+                            debug_assert_ne!((*uf.add(root2)).0, 0);
+                            tot += t.0 * t2.1 + t.1 * t2.0;
+                            t.0 += t2.0;
+                            t.1 += t2.1;
+                            *t2 = (0, root);
+                        }
                     }
-                }};
+                }
+            } else if *input.get_unchecked(off - 141) == c {
+                let mut root = off - 141;
+                let mut t = &mut *uf.add(root);
+                while t.0 == 0 {
+                    root = t.1 as usize;
+                    t = &mut *uf.add(root);
+                }
+                debug_assert_ne!((*uf.add(root)).0, 0);
+                t.0 += 1;
+                tot += t.0 * e + t.1;
+                t.1 += e;
+                *uf.add(off) = (0, root);
+            } else {
+                *uf.add(off) = (1, e);
+                tot += e;
             }
 
-            handle!(curr_off + 1);
-            handle!(curr_off + 141);
-            handle!(curr_off - 141);
-            let new_off = curr_off - 1;
-            if *input.get_unchecked(new_off) == c {
-                *input.get_unchecked_mut(new_off) = b'\n';
-                curr_off = new_off;
-                continue;
-            }
-
-            if stack_len == 0 {
-                break;
-            }
-            stack_len -= 1;
-            curr_off = *stack.get_unchecked(stack_len).as_ptr();
+            off += 1;
         }
-
-        tot += area * perimeter;
-
+        debug_assert_eq!(*input.get_unchecked(off), b'\n');
         off += 1;
+        goal += 141;
     }
 
-    tot
+    tot as u64
 }
