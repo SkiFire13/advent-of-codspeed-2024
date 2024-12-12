@@ -161,7 +161,12 @@ unsafe fn inner_part1(input: &str) -> u64 {
             handle!(curr_off + 1);
             handle!(curr_off + 141);
             handle!(curr_off - 141);
-            handle!(curr_off - 1);
+            let new_off = curr_off - 1;
+            if *input.get_unchecked(new_off) == c {
+                *input.get_unchecked_mut(new_off) = b'\n';
+                curr_off = new_off;
+                continue;
+            }
 
             if stack_len == 0 {
                 break;
@@ -328,7 +333,12 @@ unsafe fn inner_part2(input: &str) -> u64 {
             handle!(curr_off + 1);
             handle!(curr_off + 141);
             handle!(curr_off - 141);
-            handle!(curr_off - 1);
+            let new_off = curr_off - 1;
+            if *input.get_unchecked(new_off) == c {
+                *input.get_unchecked_mut(new_off) = b'\n';
+                curr_off = new_off;
+                continue;
+            }
 
             if stack_len == 0 {
                 break;
