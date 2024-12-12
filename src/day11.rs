@@ -23,11 +23,14 @@ pub fn part2(input: &str) -> u64 {
 unsafe fn inner_part1(input: &str) -> u32 {
     type Ty = u32;
 
-    let mut tot = 0u32;
+    let mut tot: Ty = 0;
 
-    let lut = include_bytes!(concat!(env!("OUT_DIR"), "/d11p1.lut"))
-        .as_ptr()
-        .cast::<Ty>();
+    static LUT: [Ty; 10_000_000] = unsafe {
+        include_bytes!(concat!(env!("OUT_DIR"), "/d11p1.lut"))
+            .as_ptr()
+            .cast::<[Ty; 10_000_000]>()
+            .read_unaligned()
+    };
 
     #[rustfmt::skip]
     core::arch::asm!(
@@ -53,7 +56,7 @@ unsafe fn inner_part1(input: &str) -> u32 {
         "jne     2b",
         ptr = in(reg) input.as_ptr(),
         end = in(reg) input.as_ptr().add(input.len()),
-        lut = in(reg) lut,
+        lut = in(reg) &LUT,
         tot = inout(reg) tot,
         n = out(reg) _,
         d = out(reg) _,
@@ -71,9 +74,12 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
     let mut tot = 0;
 
-    let lut = include_bytes!(concat!(env!("OUT_DIR"), "/d11p2.lut"))
-        .as_ptr()
-        .cast::<Ty>();
+    static LUT: [Ty; 10_000_000] = unsafe {
+        include_bytes!(concat!(env!("OUT_DIR"), "/d11p2.lut"))
+            .as_ptr()
+            .cast::<[Ty; 10_000_000]>()
+            .read_unaligned()
+    };
 
     #[rustfmt::skip]
     core::arch::asm!(
@@ -99,7 +105,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
         "jne     2b",
         ptr = in(reg) input.as_ptr(),
         end = in(reg) input.as_ptr().add(input.len()),
-        lut = in(reg) lut,
+        lut = in(reg) &LUT,
         tot = inout(reg) tot,
         n = out(reg) _,
         d = out(reg) _,
