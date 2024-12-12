@@ -8,12 +8,13 @@ fn main() {
         println!("cargo::rustc-cfg=avx512_available");
     }
 
-    let lutd11p1 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d11p1.lut");
-    make_d11_lut(25, 4, &lutd11p1);
-    let lutd11p2 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d11p2.lut");
-    make_d11_lut(75, 8, &lutd11p2);
+    // let lutd11p1 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d11p1.lut");
+    // make_d11_lut(25, 4, &lutd11p1);
+    // let lutd11p2 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d11p2.lut");
+    // make_d11_lut(75, 8, &lutd11p2);
 }
 
+#[allow(unused)]
 fn make_d11_lut(iters: usize, bytes: usize, path: &Path) {
     if path.exists() {
         let metadata = std::fs::metadata(path).unwrap();
