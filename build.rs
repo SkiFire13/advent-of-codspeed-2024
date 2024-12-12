@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
@@ -9,16 +8,10 @@ fn main() {
         println!("cargo::rustc-cfg=avx512_available");
     }
 
-    make_d11_lut(
-        25,
-        4,
-        &Path::new(&std::env::var("OUT_DIR").unwrap()).join("d11p1.lut"),
-    );
-    make_d11_lut(
-        75,
-        8,
-        &Path::new(&std::env::var("OUT_DIR").unwrap()).join("d11p2.lut"),
-    );
+    let lutd11p1 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d11p1.lut");
+    make_d11_lut(25, 4, &lutd11p1);
+    let lutd11p2 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d11p2.lut");
+    make_d11_lut(75, 8, &lutd11p2);
 }
 
 fn make_d11_lut(iters: usize, bytes: usize, path: &Path) {
@@ -29,15 +22,18 @@ fn make_d11_lut(iters: usize, bytes: usize, path: &Path) {
         }
     }
 
-    let mut levels = vec![HashMap::new(); iters];
+    let mut levels = vec![[0; 1000]; iters];
 
-    fn solve_rec(i: usize, j: usize, levels: &mut [HashMap<usize, usize>]) -> usize {
+    fn solve_rec(i: usize, j: usize, levels: &mut [[usize; 1000]]) -> usize {
         if i == 0 {
             return 1;
         }
 
-        if let Some(&res) = levels[i - 1].get(&j) {
-            return res;
+        if j < 1000 {
+            let c = levels[i - 1][j];
+            if c != 0 {
+                return c;
+            }
         }
 
         let res = if j == 0 {
@@ -49,7 +45,9 @@ fn make_d11_lut(iters: usize, bytes: usize, path: &Path) {
             solve_rec(i - 1, j * 2024, levels)
         };
 
-        levels[i - 1].insert(j, res);
+        if j < 1000 {
+            levels[i - 1][j] = res;
+        }
 
         res
     }
