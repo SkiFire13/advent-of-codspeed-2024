@@ -121,8 +121,8 @@ unsafe fn inner_part1(input: &str) -> u64 {
         }
     }
 
-    let mut uf = [MaybeUninit::<(usize, usize)>::uninit(); 141 + 140 * 141];
-    let uf = uf.as_mut_ptr().cast::<(usize, usize)>();
+    let mut uf = [MaybeUninit::<(u32, u32)>::uninit(); 141 + 140 * 141];
+    let uf = uf.as_mut_ptr().cast::<(u32, u32)>();
     let mut tot = 0;
     let mut off = 141;
 
@@ -132,20 +132,20 @@ unsafe fn inner_part1(input: &str) -> u64 {
         while off < goal {
             let c = *input.get_unchecked(off);
             debug_assert_ne!(c, b'\n');
-            let e = *edges.get_unchecked(off) as u8 as usize;
+            let e = *edges.get_unchecked(off) as u8 as u64;
 
             if *input.get_unchecked(off - 1) == c {
                 let mut root = off - 1;
                 let mut t = &mut *uf.add(root);
                 if t.0 == 0 {
-                    root = t.1 as usize;
+                    root = t.1 as _;
                     t = &mut *uf.add(root);
                 }
                 debug_assert_ne!((*uf.add(root)).0, 0);
                 t.0 += 1;
-                tot += t.0 * e + t.1;
-                t.1 += e;
-                *uf.add(off) = (0, root);
+                tot += t.0 as u64 * e as u64 + t.1 as u64;
+                t.1 += e as u32;
+                *uf.add(off) = (0, root as _);
 
                 if *input.get_unchecked(off - 141) == c {
                     'union: {
@@ -153,7 +153,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
                         if root != root2 {
                             let mut t2 = &mut *uf.add(root2);
                             while t2.0 == 0 {
-                                root2 = t2.1 as usize;
+                                root2 = t2.1 as _;
                                 if root != root2 {
                                     t2 = &mut *uf.add(root2);
                                 } else {
@@ -161,10 +161,10 @@ unsafe fn inner_part1(input: &str) -> u64 {
                                 }
                             }
                             debug_assert_ne!((*uf.add(root2)).0, 0);
-                            tot += t.0 * t2.1 + t.1 * t2.0;
+                            tot += t.0 as u64 * t2.1 as u64 + t.1 as u64 * t2.0 as u64;
                             t.0 += t2.0;
                             t.1 += t2.1;
-                            *t2 = (0, root);
+                            *t2 = (0, root as _);
                         }
                     }
                 }
@@ -172,16 +172,16 @@ unsafe fn inner_part1(input: &str) -> u64 {
                 let mut root = off - 141;
                 let mut t = &mut *uf.add(root);
                 while t.0 == 0 {
-                    root = t.1 as usize;
+                    root = t.1 as _;
                     t = &mut *uf.add(root);
                 }
                 debug_assert_ne!((*uf.add(root)).0, 0);
                 t.0 += 1;
-                tot += t.0 * e + t.1;
-                t.1 += e;
-                *uf.add(off) = (0, root);
+                tot += t.0 as u64 * e + t.1 as u64;
+                t.1 += e as u32;
+                *uf.add(off) = (0, root as _);
             } else {
-                *uf.add(off) = (1, e);
+                *uf.add(off) = (1, e as _);
                 tot += e;
             }
 
@@ -192,7 +192,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
         goal += 141;
     }
 
-    tot as u64
+    tot
 }
 
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
@@ -305,8 +305,8 @@ unsafe fn inner_part2(input: &str) -> u64 {
         }
     }
 
-    let mut uf = [MaybeUninit::<(usize, usize)>::uninit(); 141 + 140 * 141];
-    let uf = uf.as_mut_ptr().cast::<(usize, usize)>();
+    let mut uf = [MaybeUninit::<(u32, u32)>::uninit(); 141 + 140 * 141];
+    let uf = uf.as_mut_ptr().cast::<(u32, u32)>();
     let mut tot = 0;
     let mut off = 141;
 
@@ -316,20 +316,20 @@ unsafe fn inner_part2(input: &str) -> u64 {
         while off < goal {
             let c = *input.get_unchecked(off);
             debug_assert_ne!(c, b'\n');
-            let e = *corners.get_unchecked(off) as u8 as usize;
+            let e = *corners.get_unchecked(off) as u8 as u64;
 
             if *input.get_unchecked(off - 1) == c {
                 let mut root = off - 1;
                 let mut t = &mut *uf.add(root);
                 if t.0 == 0 {
-                    root = t.1 as usize;
+                    root = t.1 as _;
                     t = &mut *uf.add(root);
                 }
                 debug_assert_ne!((*uf.add(root)).0, 0);
                 t.0 += 1;
-                tot += t.0 * e + t.1;
-                t.1 += e;
-                *uf.add(off) = (0, root);
+                tot += t.0 as u64 * e as u64 + t.1 as u64;
+                t.1 += e as u32;
+                *uf.add(off) = (0, root as _);
 
                 if *input.get_unchecked(off - 141) == c {
                     'union: {
@@ -337,7 +337,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
                         if root != root2 {
                             let mut t2 = &mut *uf.add(root2);
                             while t2.0 == 0 {
-                                root2 = t2.1 as usize;
+                                root2 = t2.1 as _;
                                 if root != root2 {
                                     t2 = &mut *uf.add(root2);
                                 } else {
@@ -345,10 +345,10 @@ unsafe fn inner_part2(input: &str) -> u64 {
                                 }
                             }
                             debug_assert_ne!((*uf.add(root2)).0, 0);
-                            tot += t.0 * t2.1 + t.1 * t2.0;
+                            tot += t.0 as u64 * t2.1 as u64 + t.1 as u64 * t2.0 as u64;
                             t.0 += t2.0;
                             t.1 += t2.1;
-                            *t2 = (0, root);
+                            *t2 = (0, root as _);
                         }
                     }
                 }
@@ -356,16 +356,16 @@ unsafe fn inner_part2(input: &str) -> u64 {
                 let mut root = off - 141;
                 let mut t = &mut *uf.add(root);
                 while t.0 == 0 {
-                    root = t.1 as usize;
+                    root = t.1 as _;
                     t = &mut *uf.add(root);
                 }
                 debug_assert_ne!((*uf.add(root)).0, 0);
                 t.0 += 1;
-                tot += t.0 * e + t.1;
-                t.1 += e;
-                *uf.add(off) = (0, root);
+                tot += t.0 as u64 * e + t.1 as u64;
+                t.1 += e as u32;
+                *uf.add(off) = (0, root as _);
             } else {
-                *uf.add(off) = (1, e);
+                *uf.add(off) = (1, e as _);
                 tot += e;
             }
 
@@ -376,5 +376,5 @@ unsafe fn inner_part2(input: &str) -> u64 {
         goal += 141;
     }
 
-    tot as u64
+    tot
 }
