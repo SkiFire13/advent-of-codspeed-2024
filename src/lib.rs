@@ -1,3 +1,4 @@
+#![allow(internal_features)]
 #![feature(portable_simd)]
 #![feature(avx512_target_feature)]
 #![feature(slice_ptr_get)]
