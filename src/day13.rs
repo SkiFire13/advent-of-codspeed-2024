@@ -3,6 +3,7 @@
 #![feature(avx512_target_feature)]
 #![feature(slice_ptr_get)]
 #![feature(array_ptr_get)]
+#![feature(core_intrinsics)]
 
 pub fn run(input: &str) -> i64 {
     part2(input) as i64
@@ -32,14 +33,14 @@ macro_rules! parse {
         let mut n = 100 * (*$ptr as $ty - b'0' as $ty);
         n += 10 * (*$ptr.add(1) as $ty - b'0' as $ty);
         n += (*$ptr.add(2) as $ty - b'0' as $ty);
-        let d = (*$ptr.add(3) as $ty).wrapping_sub(b'0' as $ty);
+        let d = *$ptr.add(3) as $ty;
         $ptr = $ptr.add(4);
-        if d <= 9 as $ty {
-            n = 10 * n + d;
-            let d = (*$ptr as $ty).wrapping_sub(b'0' as $ty);
+        if d >= b'0' as $ty {
+            n = 10 * n + (d - b'0' as $ty);
+            let d = *$ptr as $ty;
             $ptr = $ptr.add(1);
-            if d <= 9 as $ty {
-                n = 10 * n + d;
+            if d >= b'0' as $ty {
+                n = 10 * n + (d - b'0' as $ty);
                 $ptr = $ptr.add(1);
             }
         }
@@ -70,12 +71,18 @@ unsafe fn inner_part1(input: &str) -> u64 {
         let y = parse!(ptr as u32) as i32;
 
         let det = dxa * dyb - dxb * dya;
-        let d1 = x * dyb - dxb * y;
-        let d2 = dxa * y - x * dya;
 
-        std::hint::assert_unchecked(det != 0);
-        if d1 % det == 0 && d2 % det == 0 {
-            tot += (3 * (d1 / det) + (d2 / det)) as u64;
+        let d1 = x * dyb - dxb * y;
+        let q1 = std::intrinsics::unchecked_div(d1, det);
+        let r1 = std::intrinsics::unchecked_rem(d1, det);
+
+        if r1 == 0 {
+            let d2 = dxa * y - x * dya;
+            let q2 = std::intrinsics::unchecked_div(d2, det);
+            let r2 = std::intrinsics::unchecked_rem(d2, det);
+            if r2 == 0 {
+                tot += (3 * q1 + q2) as u64;
+            }
         }
 
         if ptr == end {
@@ -109,12 +116,18 @@ unsafe fn inner_part2(input: &str) -> u64 {
         let y = parse!(ptr as u64) as i64 + 10000000000000;
 
         let det = dxa * dyb - dxb * dya;
-        let d1 = x * dyb - dxb * y;
-        let d2 = dxa * y - x * dya;
 
-        std::hint::assert_unchecked(det != 0);
-        if d1 % det == 0 && d2 % det == 0 {
-            tot += (3 * (d1 / det) + (d2 / det)) as u64;
+        let d1 = x * dyb - dxb * y;
+        let q1 = std::intrinsics::unchecked_div(d1, det);
+        let r1 = std::intrinsics::unchecked_rem(d1, det);
+
+        if r1 == 0 {
+            let d2 = dxa * y - x * dya;
+            let q2 = std::intrinsics::unchecked_div(d2, det);
+            let r2 = std::intrinsics::unchecked_rem(d2, det);
+            if r2 == 0 {
+                tot += (3 * q1 + q2) as u64;
+            }
         }
 
         if ptr == end {

@@ -2,6 +2,7 @@
 #![feature(avx512_target_feature)]
 #![feature(slice_ptr_get)]
 #![feature(array_ptr_get)]
+#![feature(core_intrinsics)]
 
 pub mod day1;
 pub mod day2;
