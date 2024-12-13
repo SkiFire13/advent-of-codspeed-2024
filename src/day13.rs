@@ -73,6 +73,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
         let d1 = x * dyb - dxb * y;
         let d2 = dxa * y - x * dya;
 
+        std::hint::assert_unchecked(det != 0);
         if d1 % det == 0 && d2 % det == 0 {
             tot += (3 * (d1 / det) + (d2 / det)) as u64;
         }
@@ -111,6 +112,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
         let d1 = x * dyb - dxb * y;
         let d2 = dxa * y - x * dya;
 
+        std::hint::assert_unchecked(det != 0);
         if d1 % det == 0 && d2 % det == 0 {
             tot += (3 * (d1 / det) + (d2 / det)) as u64;
         }
