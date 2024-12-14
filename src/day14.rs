@@ -127,7 +127,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
     #[inline(always)]
     unsafe fn check20(a: &[u8; 128]) -> bool {
-        let m = u8x32::splat(20);
+        let m = u8x32::splat(30);
         let b1 = u8x32::from_slice(a.get_unchecked(..32)).simd_gt(m);
         let b2 = u8x32::from_slice(a.get_unchecked(32..64)).simd_gt(m);
         let b3 = u8x32::from_slice(a.get_unchecked(64..96)).simd_gt(m);
