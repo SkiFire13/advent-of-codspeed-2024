@@ -145,11 +145,25 @@ unsafe fn inner_part2(input: &str) -> u64 {
         let robots_end = robots_ptr.add(500);
         loop {
             let [p, v] = &mut *robots_ptr;
-
             *p = (*p + *v) % (W as Ty);
             *counts.get_unchecked_mut(*p as usize) += 1;
-
             robots_ptr = robots_ptr.add(1);
+
+            let [p, v] = &mut *robots_ptr;
+            *p = (*p + *v) % (W as Ty);
+            *counts.get_unchecked_mut(*p as usize) += 1;
+            robots_ptr = robots_ptr.add(1);
+
+            let [p, v] = &mut *robots_ptr;
+            *p = (*p + *v) % (W as Ty);
+            *counts.get_unchecked_mut(*p as usize) += 1;
+            robots_ptr = robots_ptr.add(1);
+
+            let [p, v] = &mut *robots_ptr;
+            *p = (*p + *v) % (W as Ty);
+            *counts.get_unchecked_mut(*p as usize) += 1;
+            robots_ptr = robots_ptr.add(1);
+
             if robots_ptr == robots_end {
                 break;
             }
@@ -170,11 +184,25 @@ unsafe fn inner_part2(input: &str) -> u64 {
         let robots_end = robots_ptr.add(500).cast();
         loop {
             let [p, v] = &mut *robots_ptr;
-
             *p = (*p + *v) % (H as Ty);
             *counts.get_unchecked_mut(*p as usize) += 1;
-
             robots_ptr = robots_ptr.add(1);
+
+            let [p, v] = &mut *robots_ptr;
+            *p = (*p + *v) % (H as Ty);
+            *counts.get_unchecked_mut(*p as usize) += 1;
+            robots_ptr = robots_ptr.add(1);
+
+            let [p, v] = &mut *robots_ptr;
+            *p = (*p + *v) % (H as Ty);
+            *counts.get_unchecked_mut(*p as usize) += 1;
+            robots_ptr = robots_ptr.add(1);
+
+            let [p, v] = &mut *robots_ptr;
+            *p = (*p + *v) % (H as Ty);
+            *counts.get_unchecked_mut(*p as usize) += 1;
+            robots_ptr = robots_ptr.add(1);
+
             if robots_ptr == robots_end {
                 break;
             }
