@@ -72,8 +72,8 @@ unsafe fn inner_part1(input: &str) -> u64 {
         ptr = ptr.add(1);
         let vy = parse!(ptr as Ty - H);
 
-        let fx = (px + 100 * vx) % (W as Ty);
-        let fy = (py + 100 * vy) % (H as Ty);
+        let fx = fastdiv::fastmod_w((px + 100 * vx) as _) as Ty;
+        let fy = fastdiv::fastmod_h((py + 100 * vy) as _) as Ty;
 
         if fx != W as Ty / 2 && fy != H as Ty / 2 {
             counts[(fx < W as Ty / 2) as usize][(fy < H as Ty / 2) as usize] += 1;
@@ -145,22 +145,22 @@ unsafe fn inner_part2(input: &str) -> u64 {
         let robots_end = robots_ptr.add(500);
         loop {
             let [p, v] = &mut *robots_ptr;
-            *p = (*p + *v) % (W as Ty);
+            *p = fastdiv::fastmod_w(*p + *v);
             *counts.get_unchecked_mut(*p as usize) += 1;
             robots_ptr = robots_ptr.add(1);
 
             let [p, v] = &mut *robots_ptr;
-            *p = (*p + *v) % (W as Ty);
+            *p = fastdiv::fastmod_w(*p + *v);
             *counts.get_unchecked_mut(*p as usize) += 1;
             robots_ptr = robots_ptr.add(1);
 
             let [p, v] = &mut *robots_ptr;
-            *p = (*p + *v) % (W as Ty);
+            *p = fastdiv::fastmod_w(*p + *v);
             *counts.get_unchecked_mut(*p as usize) += 1;
             robots_ptr = robots_ptr.add(1);
 
             let [p, v] = &mut *robots_ptr;
-            *p = (*p + *v) % (W as Ty);
+            *p = fastdiv::fastmod_w(*p + *v);
             *counts.get_unchecked_mut(*p as usize) += 1;
             robots_ptr = robots_ptr.add(1);
 
@@ -184,22 +184,22 @@ unsafe fn inner_part2(input: &str) -> u64 {
         let robots_end = robots_ptr.add(500).cast();
         loop {
             let [p, v] = &mut *robots_ptr;
-            *p = (*p + *v) % (H as Ty);
+            *p = fastdiv::fastmod_h(*p + *v);
             *counts.get_unchecked_mut(*p as usize) += 1;
             robots_ptr = robots_ptr.add(1);
 
             let [p, v] = &mut *robots_ptr;
-            *p = (*p + *v) % (H as Ty);
+            *p = fastdiv::fastmod_h(*p + *v);
             *counts.get_unchecked_mut(*p as usize) += 1;
             robots_ptr = robots_ptr.add(1);
 
             let [p, v] = &mut *robots_ptr;
-            *p = (*p + *v) % (H as Ty);
+            *p = fastdiv::fastmod_h(*p + *v);
             *counts.get_unchecked_mut(*p as usize) += 1;
             robots_ptr = robots_ptr.add(1);
 
             let [p, v] = &mut *robots_ptr;
-            *p = (*p + *v) % (H as Ty);
+            *p = fastdiv::fastmod_h(*p + *v);
             *counts.get_unchecked_mut(*p as usize) += 1;
             robots_ptr = robots_ptr.add(1);
 
@@ -214,4 +214,36 @@ unsafe fn inner_part2(input: &str) -> u64 {
     }
 
     (51 * (i * H + j * W) % (W * H)) as u64
+}
+
+mod fastdiv {
+    #[inline(always)]
+    const fn compute_m_u16(d: u16) -> u32 {
+        (u32::MAX / d as u32) + 1
+    }
+
+    #[inline(always)]
+    const fn mul64_u16(lowbits: u32, d: u16) -> u32 {
+        (lowbits as u64 * d as u64 >> 32) as u32
+    }
+
+    #[inline(always)]
+    const fn fastmod_u16(a: u16, m: u32, d: u16) -> u16 {
+        let lowbits = m.wrapping_mul(a as u32);
+        mul64_u16(lowbits, d) as u16
+    }
+
+    #[inline(always)]
+    pub fn fastmod_w(a: u16) -> u16 {
+        use super::W as D;
+        const M: u32 = compute_m_u16(D as _);
+        fastmod_u16(a, M, D as _)
+    }
+
+    #[inline(always)]
+    pub fn fastmod_h(a: u16) -> u16 {
+        use super::H as D;
+        const M: u32 = compute_m_u16(D as _);
+        fastmod_u16(a, M, D as _)
+    }
 }
