@@ -4,6 +4,7 @@
 #![feature(slice_ptr_get)]
 #![feature(array_ptr_get)]
 #![feature(core_intrinsics)]
+#![feature(int_roundings)]
 
 pub mod day1;
 pub mod day2;
