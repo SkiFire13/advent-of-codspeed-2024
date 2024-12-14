@@ -6,6 +6,7 @@
 #![feature(core_intrinsics)]
 #![feature(int_roundings)]
 
+use std::arch::x86_64::_mm256_sad_epu8;
 use std::mem::MaybeUninit;
 use std::simd::prelude::*;
 
@@ -90,16 +91,16 @@ unsafe fn inner_part1(input: &str) -> u64 {
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part2(input: &str) -> u64 {
-    type Ty = u16;
+    type Ty = u8;
 
-    #[repr(C, align(4))]
-    #[derive(Clone, Copy)]
-    struct RobotZ([Ty; 2]);
+    #[repr(C, align(32))]
+    struct Aligned<T>(T);
 
-    let mut robots_x = [MaybeUninit::<RobotZ>::uninit(); 500];
-    let mut robots_y = [MaybeUninit::<RobotZ>::uninit(); 500];
-    let mut robots_x_ptr = robots_x.as_mut_ptr().cast();
-    let mut robots_y_ptr = robots_y.as_mut_ptr().cast();
+    let mut robots_x = Aligned([MaybeUninit::<Ty>::uninit(); 512]);
+    let mut robots_y = Aligned([MaybeUninit::<Ty>::uninit(); 512]);
+    let mut robots_vx = Aligned([MaybeUninit::<Ty>::uninit(); 512]);
+    let mut robots_vy = Aligned([MaybeUninit::<Ty>::uninit(); 512]);
+    let mut offset = 0;
 
     let mut ptr = input.as_ptr().wrapping_sub(1);
     let end = ptr.add(input.len());
@@ -107,135 +108,76 @@ unsafe fn inner_part2(input: &str) -> u64 {
     loop {
         ptr = ptr.add(3);
         let px = parse_pos!(ptr as Ty);
+        *robots_x.0.get_unchecked_mut(offset).as_mut_ptr() = px;
+
         ptr = ptr.add(1);
         let py = parse_pos!(ptr as Ty);
+        *robots_y.0.get_unchecked_mut(offset).as_mut_ptr() = py;
+
         ptr = ptr.add(3);
         let vx = parse!(ptr as Ty - W);
+        *robots_vx.0.get_unchecked_mut(offset).as_mut_ptr() = vx;
+
         ptr = ptr.add(1);
         let vy = parse!(ptr as Ty - H);
+        *robots_vy.0.get_unchecked_mut(offset).as_mut_ptr() = vy;
 
-        *robots_x_ptr = [px, vx];
-        robots_x_ptr = robots_x_ptr.add(1);
-
-        *robots_y_ptr = [py, vy];
-        robots_y_ptr = robots_y_ptr.add(1);
+        offset += 1;
 
         if ptr == end {
             break;
         }
     }
 
-    #[inline(always)]
-    unsafe fn check20(a: &[u8; 128]) -> bool {
-        let m = u8x32::splat(30);
-        let b1 = u8x32::from_slice(a.get_unchecked(..32)).simd_gt(m);
-        let b2 = u8x32::from_slice(a.get_unchecked(32..64)).simd_gt(m);
-        let b3 = u8x32::from_slice(a.get_unchecked(64..96)).simd_gt(m);
-        let b4 = u8x32::from_slice(a.get_unchecked(96..128)).simd_gt(m);
-        (b1 | b2 | b3 | b4).any()
+    robots_x.0[500..].fill(MaybeUninit::new(W as Ty / 2));
+    robots_vx.0[500..].fill(MaybeUninit::zeroed());
+    robots_y.0[500..].fill(MaybeUninit::new(H as Ty / 2));
+    robots_vy.0[500..].fill(MaybeUninit::zeroed());
+
+    macro_rules! run_loop {
+        ($p:ident, $v:ident | $s:ident) => {{
+            let mut i = 0;
+            loop {
+                i += 1;
+
+                let mut acc = u64x4::splat(0);
+                let mut ptr_p = $p.0.as_mut_ptr().cast::<u8x32>();
+                let mut ptr_v = $v.0.as_ptr().cast::<u8x32>();
+                let ptr_end = ptr_p.add(512 / 32);
+
+                loop {
+                    let p = *ptr_p;
+                    let v = *ptr_v;
+
+                    let np = p + v;
+                    let c = u8x32::splat($s as u8);
+                    let m = np.simd_ge(c);
+                    let np = m.select(np - c, np);
+
+                    *ptr_p = np;
+
+                    let c2 = u8x32::splat($s as u8 / 2);
+                    acc += u64x4::from(_mm256_sad_epu8(np.into(), c2.into()));
+
+                    ptr_p = ptr_p.add(1);
+                    ptr_v = ptr_v.add(1);
+
+                    if ptr_p == ptr_end {
+                        break;
+                    }
+                }
+
+                let sum = acc.reduce_sum();
+
+                if sum.abs_diff(500 * $s as u64 / 4) >= 4000 {
+                    break i;
+                }
+            }
+        }};
     }
 
-    let mut i = 0;
-    loop {
-        i += 1;
-
-        let mut counts = [0u8; W.next_multiple_of(64) as usize];
-
-        let mut robots_ptr = robots_x.as_mut_ptr().cast::<[Ty; 2]>();
-        let robots_end = robots_ptr.add(500);
-        loop {
-            let [p, v] = &mut *robots_ptr;
-            *p = *p + *v;
-            if *p >= W as _ {
-                *p = *p - W as Ty;
-            }
-            *counts.get_unchecked_mut(*p as usize) += 1;
-            robots_ptr = robots_ptr.add(1);
-
-            let [p, v] = &mut *robots_ptr;
-            *p = *p + *v;
-            if *p >= W as _ {
-                *p = *p - W as Ty;
-            }
-            *counts.get_unchecked_mut(*p as usize) += 1;
-            robots_ptr = robots_ptr.add(1);
-
-            let [p, v] = &mut *robots_ptr;
-            *p = *p + *v;
-            if *p >= W as _ {
-                *p = *p - W as Ty;
-            }
-            *counts.get_unchecked_mut(*p as usize) += 1;
-            robots_ptr = robots_ptr.add(1);
-
-            let [p, v] = &mut *robots_ptr;
-            *p = *p + *v;
-            if *p >= W as _ {
-                *p = *p - W as Ty;
-            }
-            *counts.get_unchecked_mut(*p as usize) += 1;
-            robots_ptr = robots_ptr.add(1);
-
-            if robots_ptr == robots_end {
-                break;
-            }
-        }
-
-        if check20(&counts) {
-            break;
-        }
-    }
-
-    let mut j = 0;
-    loop {
-        j += 1;
-
-        let mut counts = [0; H.next_multiple_of(64) as usize];
-
-        let mut robots_ptr = robots_y.as_mut_ptr().cast::<[Ty; 2]>();
-        let robots_end = robots_ptr.add(500).cast();
-        loop {
-            let [p, v] = &mut *robots_ptr;
-            *p = *p + *v;
-            if *p >= H as _ {
-                *p = *p - H as Ty;
-            }
-            *counts.get_unchecked_mut(*p as usize) += 1;
-            robots_ptr = robots_ptr.add(1);
-
-            let [p, v] = &mut *robots_ptr;
-            *p = *p + *v;
-            if *p >= H as _ {
-                *p = *p - H as Ty;
-            }
-            *counts.get_unchecked_mut(*p as usize) += 1;
-            robots_ptr = robots_ptr.add(1);
-
-            let [p, v] = &mut *robots_ptr;
-            *p = *p + *v;
-            if *p >= H as _ {
-                *p = *p - H as Ty;
-            }
-            *counts.get_unchecked_mut(*p as usize) += 1;
-            robots_ptr = robots_ptr.add(1);
-
-            let [p, v] = &mut *robots_ptr;
-            *p = *p + *v;
-            if *p >= H as _ {
-                *p = *p - H as Ty;
-            }
-            *counts.get_unchecked_mut(*p as usize) += 1;
-            robots_ptr = robots_ptr.add(1);
-
-            if robots_ptr == robots_end {
-                break;
-            }
-        }
-
-        if check20(&counts) {
-            break;
-        }
-    }
+    let i = run_loop!(robots_x, robots_vx | W);
+    let j = run_loop!(robots_y, robots_vy | H);
 
     (51 * (i * H + j * W) % (W * H)) as u64
 }
