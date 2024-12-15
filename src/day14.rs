@@ -6,7 +6,6 @@
 #![feature(core_intrinsics)]
 #![feature(int_roundings)]
 
-use std::arch::x86_64::_mm256_sad_epu8;
 use std::mem::MaybeUninit;
 use std::simd::prelude::*;
 
@@ -134,46 +133,122 @@ unsafe fn inner_part2(input: &str) -> u64 {
     robots_y.0[500..].fill(MaybeUninit::new(H as Ty / 2));
     robots_vy.0[500..].fill(MaybeUninit::zeroed());
 
+    macro_rules! run_iter_reg {
+        ($p:expr, $v:ident, $acc:ident, $o:literal | $s:ident) => {{
+            core::arch::asm!(
+                "vpaddb  {np}, {np}, ymmword ptr [{v_ptr} + {off}]",
+                "vpaddb  {s}, {np}, {c1}",
+                "vpminub {np}, {np}, {s}",
+                "vpsadbw {s}, {np}, {c2}",
+                "vpaddq  {acc}, {acc}, {s}",
+                v_ptr = in(reg) $v.0.as_ptr(),
+                off = const 32 * $o,
+                np = inout(ymm_reg) $p,
+                acc = inout(ymm_reg) $acc,
+                s = out(ymm_reg) _,
+                c1 = in(ymm_reg) u8x32::splat((256 - $s) as Ty),
+                c2 = in(ymm_reg) u8x32::splat($s as u8 / 2),
+                options(nostack, pure, readonly),
+            );
+        }};
+    }
+
+    macro_rules! run_iter_mem {
+        ($p:expr, $v:ident, $acc:ident, $o:literal | $s:ident) => {{
+            core::arch::asm!(
+                "vmovdqa {np}, ymmword ptr [{p_ptr} + {off}]",
+                "vpaddb  {np}, {np}, ymmword ptr [{v_ptr} + {off}]",
+                "vpaddb  {s}, {np}, {c1}",
+                "vpminub {np}, {np}, {s}",
+                "vpsadbw {s}, {np}, {c2}",
+                "vpaddq  {acc}, {acc}, {s}",
+                "vmovdqa ymmword ptr [{p_ptr} + {off}], {np}",
+                p_ptr = in(reg) $p.0.as_ptr(),
+                v_ptr = in(reg) $v.0.as_ptr(),
+                off = const 32 * $o,
+                np = out(ymm_reg) _,
+                acc = inout(ymm_reg) $acc,
+                s = out(ymm_reg) _,
+                c1 = in(ymm_reg) u8x32::splat((256 - $s) as Ty),
+                c2 = in(ymm_reg) u8x32::splat($s as u8 / 2),
+                options(nostack, pure, readonly),
+            );
+        }};
+    }
+
     macro_rules! run_loop {
         ($p:ident, $v:ident | $s:ident) => {{
+            let mut p00 = *$p.0.as_ptr().cast::<u8x32>().add(00);
+            let mut p01 = *$p.0.as_ptr().cast::<u8x32>().add(01);
+            let mut p02 = *$p.0.as_ptr().cast::<u8x32>().add(02);
+            let mut p03 = *$p.0.as_ptr().cast::<u8x32>().add(03);
+            let mut p04 = *$p.0.as_ptr().cast::<u8x32>().add(04);
+            let mut p05 = *$p.0.as_ptr().cast::<u8x32>().add(05);
+            let mut p06 = *$p.0.as_ptr().cast::<u8x32>().add(06);
+            let mut p07 = *$p.0.as_ptr().cast::<u8x32>().add(07);
+            let mut p08 = *$p.0.as_ptr().cast::<u8x32>().add(08);
+            let mut p09 = *$p.0.as_ptr().cast::<u8x32>().add(09);
+            let mut p10 = *$p.0.as_ptr().cast::<u8x32>().add(10);
+            // let mut p11 = *$p.0.as_ptr().cast::<u8x32>().add(11);
+            // let mut p12 = *$p.0.as_ptr().cast::<u8x32>().add(12);
+            // let mut p13 = *$p.0.as_ptr().cast::<u8x32>().add(13);
+            // let mut p14 = *$p.0.as_ptr().cast::<u8x32>().add(14);
+            // let mut p15 = *$p.0.as_ptr().cast::<u8x32>().add(15);
+
             let mut i = 0;
             loop {
                 i += 1;
 
                 let mut acc = u64x4::splat(0);
-                let mut ptr_p = $p.0.as_mut_ptr().cast::<u8x32>();
-                let mut ptr_v = $v.0.as_ptr().cast::<u8x32>();
-                let ptr_end = ptr_p.add(512 / 32);
-                let c = u8x32::splat($s as u8);
-
-                loop {
-                    let np = *ptr_p + *ptr_v;
-                    let np = np.simd_min(np - c);
-
-                    *ptr_p = np;
-
-                    let c2 = u8x32::splat($s as u8 / 2);
-                    acc += u64x4::from(_mm256_sad_epu8(np.into(), c2.into()));
-
-                    ptr_p = ptr_p.add(1);
-                    ptr_v = ptr_v.add(1);
-
-                    if ptr_p == ptr_end {
-                        break;
-                    }
-                }
+                run_iter_reg!(p00, $v, acc, 00 | $s);
+                run_iter_reg!(p01, $v, acc, 01 | $s);
+                run_iter_reg!(p02, $v, acc, 02 | $s);
+                run_iter_reg!(p03, $v, acc, 03 | $s);
+                run_iter_reg!(p04, $v, acc, 04 | $s);
+                run_iter_reg!(p05, $v, acc, 05 | $s);
+                run_iter_reg!(p06, $v, acc, 06 | $s);
+                run_iter_reg!(p07, $v, acc, 07 | $s);
+                run_iter_reg!(p08, $v, acc, 08 | $s);
+                run_iter_reg!(p09, $v, acc, 09 | $s);
+                run_iter_reg!(p10, $v, acc, 10 | $s);
+                run_iter_mem!($p, $v, acc, 11 | $s);
+                run_iter_mem!($p, $v, acc, 12 | $s);
+                run_iter_mem!($p, $v, acc, 13 | $s);
+                run_iter_mem!($p, $v, acc, 14 | $s);
+                run_iter_mem!($p, $v, acc, 15 | $s);
 
                 let sum = acc.reduce_sum();
 
-                if sum.abs_diff(500 * $s as u64 / 4) >= 1700 {
+                if sum.abs_diff(500 * $s as u64 / 4) >= 1500 {
                     break i;
                 }
             }
         }};
     }
 
-    let i = run_loop!(robots_x, robots_vx | W);
-    let j = run_loop!(robots_y, robots_vy | H);
+    let mut i = i64::MAX;
+    let j;
+
+    loop {
+        let mut p = &mut robots_x;
+        let mut v = &robots_vx;
+        let mut c = W;
+
+        if i != i64::MAX {
+            p = &mut robots_y;
+            v = &robots_vy;
+            c = H;
+        }
+
+        let n = run_loop!(p, v | c);
+
+        if i == i64::MAX {
+            i = n;
+        } else {
+            j = n;
+            break;
+        }
+    }
 
     (51 * (i * H + j * W) % (W * H)) as u64
 }
