@@ -1,5 +1,5 @@
 fn bench<D: std::fmt::Display>(mut f: impl FnMut() -> D) {
-    let n = if cfg!(debug_assertions) { 1 } else { 5000 };
+    let n = if cfg!(debug_assertions) { 1 } else { 100 };
     let now = std::time::Instant::now();
     for _ in 0..n - 1 {
         f();
