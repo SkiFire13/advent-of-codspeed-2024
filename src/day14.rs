@@ -144,15 +144,11 @@ unsafe fn inner_part2(input: &str) -> u64 {
                 let mut ptr_p = $p.0.as_mut_ptr().cast::<u8x32>();
                 let mut ptr_v = $v.0.as_ptr().cast::<u8x32>();
                 let ptr_end = ptr_p.add(512 / 32);
+                let c = u8x32::splat($s as u8);
 
                 loop {
-                    let p = *ptr_p;
-                    let v = *ptr_v;
-
-                    let np = p + v;
-                    let c = u8x32::splat($s as u8);
-                    let m = np.simd_ge(c);
-                    let np = m.select(np - c, np);
+                    let np = *ptr_p + *ptr_v;
+                    let np = np.simd_min(np - c);
 
                     *ptr_p = np;
 
@@ -169,7 +165,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
                 let sum = acc.reduce_sum();
 
-                if sum.abs_diff(500 * $s as u64 / 4) >= 4000 {
+                if sum.abs_diff(500 * $s as u64 / 4) >= 1700 {
                     break i;
                 }
             }
