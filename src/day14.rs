@@ -228,22 +228,17 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
     let mut i = i64::MAX;
     let j;
+    let mut p = &mut robots_x;
+    let mut v = &robots_vx;
+    let mut c = W;
 
     loop {
-        let mut p = &mut robots_x;
-        let mut v = &robots_vx;
-        let mut c = W;
-
-        if i != i64::MAX {
+        let n = run_loop!(p, v | c);
+        if i == i64::MAX {
+            i = n;
             p = &mut robots_y;
             v = &robots_vy;
             c = H;
-        }
-
-        let n = run_loop!(p, v | c);
-
-        if i == i64::MAX {
-            i = n;
         } else {
             j = n;
             break;
