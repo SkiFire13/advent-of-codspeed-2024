@@ -24,12 +24,16 @@ pub fn part2(input: &str) -> u32 {
     unsafe { inner_part2(input) }
 }
 
-static D1_LUT: [i8; 128] = {
+static D1_LUTX: [i8; 128] = {
     let mut lut = [0; 128];
     lut[b'<' as usize] = -1;
     lut[b'>' as usize] = 1;
-    lut[b'^' as usize] = -64;
-    lut[b'v' as usize] = 64;
+    lut
+};
+static D1_LUTY: [i8; 128] = {
+    let mut lut = [0; 128];
+    lut[b'^' as usize] = -1;
+    lut[b'v' as usize] = 1;
     lut
 };
 
@@ -57,24 +61,23 @@ unsafe fn inner_part1(input: &str) -> u32 {
     let input = input.as_bytes();
 
     let mut offset = 0;
-    let mut pos = loop {
+    let (mut x, mut y) = loop {
         let block = u8x64::from_slice(input.get_unchecked(offset..offset + 64));
         let mask = block.simd_eq(u8x64::splat(b'@'));
         if let Some(idx) = mask.first_set() {
             offset += idx;
-            let (x, y) = (offset % 51, offset / 51);
-            break 64 * y + x;
+            break (offset % 51, offset / 51);
         }
         offset += 64;
     };
 
-    let mut walls = MaybeUninit::<[u64; 50]>::uninit();
-    let mut boxes = MaybeUninit::<[u64; 50]>::uninit();
+    let mut wallsh = MaybeUninit::<[u64; 50]>::uninit();
+    let mut boxesh = MaybeUninit::<[u64; 50]>::uninit();
 
-    *walls.as_mut_ptr().cast::<u64>().add(0) = u64::MAX;
-    *walls.as_mut_ptr().cast::<u64>().add(49) = u64::MAX;
-    *boxes.as_mut_ptr().cast::<u64>().add(0) = 0;
-    *boxes.as_mut_ptr().cast::<u64>().add(49) = 0;
+    *wallsh.as_mut_ptr().cast::<u64>().add(0) = u64::MAX;
+    *wallsh.as_mut_ptr().cast::<u64>().add(49) = u64::MAX;
+    *boxesh.as_mut_ptr().cast::<u64>().add(0) = 0;
+    *boxesh.as_mut_ptr().cast::<u64>().add(49) = 0;
 
     let mut i = 1;
     let mut offset = 51;
@@ -82,8 +85,8 @@ unsafe fn inner_part1(input: &str) -> u32 {
         let block = u8x64::from_slice(input.get_unchecked(offset..offset + 64));
         let maskw = block.simd_eq(u8x64::splat(b'#')).to_bitmask();
         let maskb = block.simd_eq(u8x64::splat(b'O')).to_bitmask();
-        *walls.as_mut_ptr().cast::<u64>().add(i) = maskw;
-        *boxes.as_mut_ptr().cast::<u64>().add(i) = maskb;
+        *wallsh.as_mut_ptr().cast::<u64>().add(i) = maskw;
+        *boxesh.as_mut_ptr().cast::<u64>().add(i) = maskb;
 
         i += 1;
         offset += 51;
@@ -92,8 +95,20 @@ unsafe fn inner_part1(input: &str) -> u32 {
         }
     }
 
-    let walls = walls.assume_init_ref();
-    let boxes = boxes.assume_init_mut();
+    let wallsh = wallsh.assume_init_ref();
+    let boxesh = boxesh.assume_init_mut();
+
+    let mut boxesv = MaybeUninit::<[u64; 50]>::uninit();
+    *boxesv.as_mut_ptr().cast::<u64>().add(0) = 0;
+    *boxesv.as_mut_ptr().cast::<u64>().add(49) = 0;
+    for x in 1..49 {
+        let mut b = 0;
+        for y in 1..49 {
+            b |= ((boxesh.get_unchecked(y) >> x) & 1) << y;
+        }
+        *boxesv.as_mut_ptr().cast::<u64>().add(x) = b;
+    }
+    let boxesv = boxesv.assume_init_mut();
 
     let mut ptr = input.as_ptr().add(50 * 51 + 1).sub(1);
     let mut ptr_goal;
@@ -108,41 +123,35 @@ unsafe fn inner_part1(input: &str) -> u32 {
             }
 
             let instr = *ptr;
-            let d = *D1_LUT.get_unchecked(instr as usize) as isize;
-            let new_pos = pos.wrapping_add_signed(d);
-            let (nx, ny) = (new_pos & 0b111111, new_pos >> 6);
+            let dx = *D1_LUTX.get_unchecked(instr as usize) as isize;
+            let dy = *D1_LUTY.get_unchecked(instr as usize) as isize;
+            let (nx, ny) = (x.wrapping_add_signed(dx), y.wrapping_add_signed(dy));
 
-            if (*boxes.get_unchecked(ny) | *walls.get_unchecked(ny)) & (1 << nx) == 0 {
-                pos = new_pos;
+            if (*boxesh.get_unchecked(ny) | *wallsh.get_unchecked(ny)) & (1 << nx) == 0 {
+                (x, y) = (nx, ny);
                 continue;
             }
 
-            if *walls.get_unchecked(ny) & (1 << nx) != 0 {
+            if *wallsh.get_unchecked(ny) & (1 << nx) != 0 {
                 continue;
             }
 
             let (mut sx, mut sy) = (nx, ny);
 
             match instr {
-                b'<' => sx -= (boxes.get_unchecked(ny) << (63 - nx)).leading_ones() as usize,
-                b'>' => sx += (boxes.get_unchecked(ny) >> nx).trailing_ones() as usize,
-                b'^' => {
-                    while *boxes.get_unchecked(sy) & (1 << nx) != 0 {
-                        sy -= 1;
-                    }
-                }
-                b'v' => {
-                    while *boxes.get_unchecked(sy) & (1 << nx) != 0 {
-                        sy += 1;
-                    }
-                }
+                b'<' => sx -= (boxesh.get_unchecked(ny) << (63 - nx)).leading_ones() as usize,
+                b'>' => sx += (boxesh.get_unchecked(ny) >> nx).trailing_ones() as usize,
+                b'^' => sy -= (boxesv.get_unchecked(nx) << (63 - ny)).leading_ones() as usize,
+                b'v' => sy += (boxesv.get_unchecked(nx) >> ny).trailing_ones() as usize,
                 _ => std::hint::unreachable_unchecked(),
             }
 
-            if *walls.get_unchecked(sy) & (1 << sx) == 0 {
-                *boxes.get_unchecked_mut(sy) |= 1 << sx;
-                *boxes.get_unchecked_mut(ny) &= !(1 << nx);
-                pos = new_pos;
+            if *wallsh.get_unchecked(sy) & (1 << sx) == 0 {
+                *boxesh.get_unchecked_mut(sy) |= 1 << sx;
+                *boxesh.get_unchecked_mut(ny) &= !(1 << nx);
+                *boxesv.get_unchecked_mut(sx) |= 1 << sy;
+                *boxesv.get_unchecked_mut(nx) &= !(1 << ny);
+                (x, y) = (nx, ny);
             }
         }
         if ptr_goal == ptr_goal_end {
@@ -173,7 +182,7 @@ unsafe fn inner_part1(input: &str) -> u32 {
     let mut tot_x = u64x4::splat(0);
     let zero = i8x32::splat(0);
     for y in 1..49 {
-        let b = *boxes.get_unchecked(y) & (u64::MAX >> (64 - 50));
+        let b = *boxesh.get_unchecked(y) & (u64::MAX >> (64 - 50));
         let y = i8x32::splat(y as i8);
 
         let m1 = mask8x32::from_bitmask(b as u32 as u64).to_int();
