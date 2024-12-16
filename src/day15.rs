@@ -6,6 +6,7 @@
 #![feature(core_intrinsics)]
 #![feature(int_roundings)]
 
+use std::arch::x86_64::*;
 use std::mem::MaybeUninit;
 use std::simd::prelude::*;
 
@@ -79,8 +80,8 @@ unsafe fn inner_part1(input: &str) -> u32 {
     let mut offset = 51;
     loop {
         let block = u8x64::from_slice(input.get_unchecked(offset..offset + 64));
-        let maskw = block.simd_eq(u8x64::splat(b'#')).to_bitmask() & (u64::MAX >> (64 - 50));
-        let maskb = block.simd_eq(u8x64::splat(b'O')).to_bitmask() & (u64::MAX >> (64 - 50));
+        let maskw = block.simd_eq(u8x64::splat(b'#')).to_bitmask();
+        let maskb = block.simd_eq(u8x64::splat(b'O')).to_bitmask();
         *walls.as_mut_ptr().cast::<u64>().add(i) = maskw;
         *boxes.as_mut_ptr().cast::<u64>().add(i) = maskb;
 
@@ -94,74 +95,97 @@ unsafe fn inner_part1(input: &str) -> u32 {
     let walls = walls.assume_init_ref();
     let boxes = boxes.assume_init_mut();
 
-    for &instr in input.get_unchecked(50 * 51 + 1..) {
-        let d = *D1_LUT.get_unchecked(instr as usize) as isize;
-        let new_pos = pos.wrapping_add_signed(d);
-        let (nx, ny) = (new_pos & 0b111111, new_pos >> 6);
+    let mut ptr = input.as_ptr().add(50 * 51 + 1).sub(1);
+    let mut ptr_goal;
+    let ptr_goal_end = ptr.add(20 * 1001);
 
-        if (*boxes.get_unchecked(ny) | *walls.get_unchecked(ny)) & (1 << nx) == 0 {
-            pos = new_pos;
-            continue;
+    loop {
+        ptr_goal = ptr.add(1001);
+        loop {
+            ptr = ptr.add(1);
+            if ptr == ptr_goal {
+                break;
+            }
+
+            let instr = *ptr;
+            let d = *D1_LUT.get_unchecked(instr as usize) as isize;
+            let new_pos = pos.wrapping_add_signed(d);
+            let (nx, ny) = (new_pos & 0b111111, new_pos >> 6);
+
+            if (*boxes.get_unchecked(ny) | *walls.get_unchecked(ny)) & (1 << nx) == 0 {
+                pos = new_pos;
+                continue;
+            }
+
+            if *walls.get_unchecked(ny) & (1 << nx) != 0 {
+                continue;
+            }
+
+            let (mut sx, mut sy) = (nx, ny);
+
+            match instr {
+                b'<' => sx -= (boxes.get_unchecked(ny) << (63 - nx)).leading_ones() as usize,
+                b'>' => sx += (boxes.get_unchecked(ny) >> nx).trailing_ones() as usize,
+                b'^' => {
+                    while *boxes.get_unchecked(sy) & (1 << nx) != 0 {
+                        sy -= 1;
+                    }
+                }
+                b'v' => {
+                    while *boxes.get_unchecked(sy) & (1 << nx) != 0 {
+                        sy += 1;
+                    }
+                }
+                _ => std::hint::unreachable_unchecked(),
+            }
+
+            if *walls.get_unchecked(sy) & (1 << sx) == 0 {
+                *boxes.get_unchecked_mut(sy) |= 1 << sx;
+                *boxes.get_unchecked_mut(ny) &= !(1 << nx);
+                pos = new_pos;
+            }
         }
-
-        if *walls.get_unchecked(ny) & (1 << nx) != 0 {
-            continue;
-        }
-
-        match instr {
-            b'<' => {
-                let sx = nx - (boxes.get_unchecked(ny) << (63 - nx)).leading_ones() as usize;
-                if *walls.get_unchecked(ny) & (1 << sx) == 0 {
-                    *boxes.get_unchecked_mut(ny) |= 1 << sx;
-                    *boxes.get_unchecked_mut(ny) &= !(1 << nx);
-                    pos = new_pos;
-                }
-            }
-            b'>' => {
-                let sx = nx + (boxes.get_unchecked(ny) >> nx).trailing_ones() as usize;
-                if *walls.get_unchecked(ny) & (1 << sx) == 0 {
-                    *boxes.get_unchecked_mut(ny) |= 1 << sx;
-                    *boxes.get_unchecked_mut(ny) &= !(1 << nx);
-                    pos = new_pos;
-                }
-            }
-            b'^' => {
-                let mut sy = ny;
-                while *boxes.get_unchecked(sy) & (1 << nx) != 0 {
-                    sy -= 1;
-                }
-                if *walls.get_unchecked(sy) & (1 << nx) == 0 {
-                    *boxes.get_unchecked_mut(sy) |= 1 << nx;
-                    *boxes.get_unchecked_mut(ny) &= !(1 << nx);
-                    pos = new_pos;
-                }
-            }
-            b'v' => {
-                let mut sy = ny;
-                while *boxes.get_unchecked(sy) & (1 << nx) != 0 {
-                    sy += 1;
-                }
-                if *walls.get_unchecked(sy) & (1 << nx) == 0 {
-                    *boxes.get_unchecked_mut(sy) |= 1 << nx;
-                    *boxes.get_unchecked_mut(ny) &= !(1 << nx);
-                    pos = new_pos;
-                }
-            }
-            b'\n' => {}
-            _ => std::hint::unreachable_unchecked(),
+        if ptr_goal == ptr_goal_end {
+            break;
         }
     }
 
-    let mut tot = 0;
+    static X_ADD1: [i8; 32] = {
+        let mut add = [0; 32];
+        let mut i = 0;
+        while i < 32 {
+            add[i] = i as i8;
+            i += 1;
+        }
+        add
+    };
+    static X_ADD2: [i8; 32] = {
+        let mut add = [0; 32];
+        let mut i = 32;
+        while i < 64 {
+            add[i - 32] = i as i8;
+            i += 1;
+        }
+        add
+    };
+
+    let mut tot_y = u64x4::splat(0);
+    let mut tot_x = u64x4::splat(0);
+    let zero = i8x32::splat(0);
     for y in 1..49 {
-        let mut b = *boxes.get_unchecked(y);
-        while b != 0 {
-            let x = b.trailing_zeros();
-            b &= !(1 << x);
-            tot += 100 * y as u32 + x;
-        }
+        let b = *boxes.get_unchecked(y) & (u64::MAX >> (64 - 50));
+        let y = i8x32::splat(y as i8);
+
+        let m1 = mask8x32::from_bitmask(b as u32 as u64).to_int();
+        let m2 = mask8x32::from_bitmask((b >> 32) & (u64::MAX >> (64 - 50 + 32))).to_int();
+
+        let x = (i8x32::from_slice(&X_ADD1) & m1) + (i8x32::from_slice(&X_ADD2) & m2);
+        tot_x += u64x4::from(_mm256_sad_epu8(x.into(), zero.into()));
+
+        let y = (y & m1) + (y & m2);
+        tot_y += u64x4::from(_mm256_sad_epu8(y.into(), zero.into()));
     }
-    tot
+    (u64x4::splat(100) * tot_y + tot_x).reduce_sum() as u32
 }
 
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
