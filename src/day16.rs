@@ -115,8 +115,176 @@ unsafe fn inner_part1(input: &str) -> u32 {
     }
 }
 
+const LEFT_ID: DirId = DirId(0b00);
+const RIGHT_ID: DirId = DirId(0b11);
+const UP_ID: DirId = DirId(0b10);
+const DOWN_ID: DirId = DirId(0b01);
+
+static DIR_MAP: [usize; 4] = {
+    let mut dirs = [0; 4];
+    dirs[LEFT_ID.idx()] = LEFT;
+    dirs[RIGHT_ID.idx()] = RIGHT;
+    dirs[UP_ID.idx()] = UP;
+    dirs[DOWN_ID.idx()] = DOWN;
+    dirs
+};
+
+#[derive(Copy, Clone)]
+#[repr(transparent)]
+struct DirId(u16);
+
+impl DirId {
+    const fn parity(self) -> usize {
+        (self.0 & 1) as usize
+    }
+    const fn kind(self) -> u16 {
+        (self.0 ^ (self.0 >> 1)) & 1
+    }
+    const fn invert(self) -> DirId {
+        Self(self.0 ^ 0b11)
+    }
+    const fn perp1(self) -> DirId {
+        Self(self.0 ^ 0b01)
+    }
+    const fn perp2(self) -> DirId {
+        Self(self.0 ^ 0b10)
+    }
+    const fn idx(self) -> usize {
+        self.0 as usize
+    }
+}
+
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part2(input: &str) -> u32 {
+    let input = input.as_bytes();
+
+    let mut ids = [u16::MAX; 141 * 142];
+    ids[START as usize] = 0;
+    ids[END as usize] = 2;
+    let mut next_id = 4;
+
+    let mut moves = [MaybeUninit::<[(u16, u8, u8); 2]>::uninit(); 3000];
+    moves[0] = MaybeUninit::new([(u16::MAX, 0, 0); 2]);
+    moves[1] = MaybeUninit::new([(u16::MAX, 0, 0); 2]);
+    moves[2] = MaybeUninit::new([(u16::MAX, 0, 0); 2]);
+    moves[3] = MaybeUninit::new([(u16::MAX, 0, 0); 2]);
+
+    let mut queue = [MaybeUninit::uninit(); 256];
+    *queue.get_unchecked_mut(0).as_mut_ptr() = (START, RIGHT_ID, 0);
+    *queue.get_unchecked_mut(1).as_mut_ptr() = (START, UP_ID, 1);
+    let mut queue_len = 2;
+
+    'queue: while queue_len != 0 {
+        queue_len -= 1;
+        let (pos, start_dir_id, start_id) = *queue.get_unchecked(queue_len).as_ptr();
+
+        if moves[start_id as usize].assume_init()[start_dir_id.parity() as usize].0 != u16::MAX {
+            continue;
+        }
+
+        let mut pos = pos as usize;
+        let mut dir_id = start_dir_id;
+        let mut turns = 0;
+        let mut cells = 0;
+
+        let mut dir = *DIR_MAP.get_unchecked(dir_id.idx());
+        let mut dir1 = *DIR_MAP.get_unchecked(dir_id.perp1().idx());
+        let mut dir2 = *DIR_MAP.get_unchecked(dir_id.perp2().idx());
+
+        debug_assert_ne!(
+            input[pos.wrapping_add(dir)] as char,
+            '#',
+            "{} {}, {} {}, {}",
+            pos % 142,
+            pos / 142,
+            pos.wrapping_add(dir) % 142,
+            pos.wrapping_add(dir) / 142,
+            dir as isize
+        );
+
+        'inner: loop {
+            pos = pos.wrapping_add(dir);
+            cells += 1;
+
+            let cont = *input.get_unchecked(pos.wrapping_add(dir)) != b'#';
+            let cont1 = *input.get_unchecked(pos.wrapping_add(dir1)) != b'#';
+            let cont2 = *input.get_unchecked(pos.wrapping_add(dir2)) != b'#';
+
+            debug_assert_ne!(input[pos] as char, '#', "{} {}", pos % 142, pos / 142);
+
+            if !cont1 && !cont2 {
+                if cont {
+                    // go straight
+                    continue 'inner;
+                } else {
+                    // deadend
+                    continue 'queue;
+                }
+            } else if cont || (cont1 && cont2) {
+                // new node
+
+                let mut dest_id = *ids.get_unchecked(pos);
+                if dest_id == u16::MAX {
+                    dest_id = next_id | dir_id.kind();
+
+                    *ids.get_unchecked_mut(pos) = next_id;
+                    *moves.get_unchecked_mut(next_id as usize).as_mut_ptr() = [(u16::MAX, 0, 0); 2];
+                    *moves.get_unchecked_mut(next_id as usize + 1).as_mut_ptr() =
+                        [(u16::MAX, 0, 0); 2];
+
+                    debug_assert!(dest_id == next_id || dest_id == next_id + 1);
+
+                    next_id += 2;
+
+                    let m = &*moves.get_unchecked(dest_id as usize).as_ptr();
+                    if cont {
+                        debug_assert_eq!(m.get_unchecked(dir_id.invert().parity()).0, u16::MAX);
+                        *queue.get_unchecked_mut(queue_len).as_mut_ptr() =
+                            (pos as u32, dir_id, dest_id);
+                        queue_len += 1;
+                    }
+
+                    let m = &*moves.get_unchecked(dest_id as usize ^ 1).as_ptr();
+
+                    let dir1_id = dir_id.perp1();
+                    if cont1 && m.get_unchecked(dir1_id.parity()).0 == u16::MAX {
+                        *queue.get_unchecked_mut(queue_len).as_mut_ptr() =
+                            (pos as u32, dir1_id, dest_id ^ 1);
+                        queue_len += 1;
+                    }
+
+                    let dir2_id = dir_id.perp2();
+                    if cont2 && m.get_unchecked(dir2_id.parity()).0 == u16::MAX {
+                        *queue.get_unchecked_mut(queue_len).as_mut_ptr() =
+                            (pos as u32, dir2_id, dest_id ^ 1);
+                        queue_len += 1;
+                    }
+                }
+
+                *(*moves.get_unchecked_mut(start_id as usize).as_mut_ptr())
+                    .get_unchecked_mut(start_dir_id.parity()) = (dest_id, turns, cells);
+                *(*moves.get_unchecked_mut(dest_id as usize).as_mut_ptr())
+                    .get_unchecked_mut(dir_id.invert().parity()) = (start_id, turns, cells);
+
+                continue 'queue;
+            } else {
+                // turn
+
+                dir_id = if cont1 {
+                    dir_id.perp1()
+                } else {
+                    dir_id.perp2()
+                };
+                dir = *DIR_MAP.get_unchecked(dir_id.idx());
+                dir1 = *DIR_MAP.get_unchecked(dir_id.perp1().idx());
+                dir2 = *DIR_MAP.get_unchecked(dir_id.perp2().idx());
+                turns += 1;
+
+                continue 'inner;
+            }
+        }
+    }
+
     0
 }
