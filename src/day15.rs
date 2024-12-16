@@ -11,7 +11,7 @@ use std::mem::MaybeUninit;
 use std::simd::prelude::*;
 
 pub fn run(input: &str) -> i64 {
-    part1(input) as i64
+    part2(input) as i64
 }
 
 #[inline(always)]
@@ -34,24 +34,6 @@ static D1_LUTY: [i8; 128] = {
     let mut lut = [0; 128];
     lut[b'^' as usize] = -1;
     lut[b'v' as usize] = 1;
-    lut
-};
-
-static D2_LUT: [i8; 128] = {
-    let mut lut = [0; 128];
-    lut[b'<' as usize] = -1;
-    lut[b'>' as usize] = 1;
-    lut[b'^' as usize] = -100;
-    lut[b'v' as usize] = 100;
-    lut
-};
-
-static GRID_LUT: [[u8; 2]; 128] = {
-    let mut lut = [[0; 2]; 128];
-    lut[b'.' as usize] = [b'.', b'.'];
-    lut[b'O' as usize] = [b'[', b']'];
-    lut[b'#' as usize] = [b'#', b'#'];
-    lut[b'@' as usize] = [b'.', b'.'];
     lut
 };
 
@@ -113,7 +95,6 @@ unsafe fn inner_part1(input: &str) -> u32 {
     let mut ptr = input.as_ptr().add(50 * 51 + 1).sub(1);
     let mut ptr_goal;
     let ptr_goal_end = ptr.add(20 * 1001);
-
     loop {
         ptr_goal = ptr.add(1001);
         loop {
@@ -203,169 +184,244 @@ unsafe fn inner_part2(input: &str) -> u32 {
     let input = input.as_bytes();
 
     let mut offset = 0;
-    let mut pos = loop {
+    let (mut x, mut y) = loop {
         let block = u8x64::from_slice(input.get_unchecked(offset..offset + 64));
         let mask = block.simd_eq(u8x64::splat(b'@'));
         if let Some(idx) = mask.first_set() {
-            let offset = offset + idx;
-            let (x, y) = (offset % 51, offset / 51);
-            break 100 * y + 2 * x;
+            offset += idx;
+            break (2 * (offset % 51), offset / 51);
         }
         offset += 64;
     };
 
-    let mut grid = MaybeUninit::<[u8; 50 * 100 + (128 - 100)]>::uninit();
+    let mut wallsh = MaybeUninit::<[u128; 50]>::uninit();
+    let mut boxesh = MaybeUninit::<[u128; 50]>::uninit();
 
-    let mut grid_ptr = grid.as_mut_ptr().cast::<[u8; 2]>();
-    let mut input_ptr = input.as_ptr();
-    let mut input_ptr_goal = input_ptr.add(50);
-    let input_ptr_end = input_ptr.add(51 * 50 - 1 + 51);
+    *wallsh.as_mut_ptr().cast::<u128>().add(0) = u128::MAX;
+    *wallsh.as_mut_ptr().cast::<u128>().add(49) = u128::MAX;
+    *boxesh.as_mut_ptr().cast::<u128>().add(0) = 0;
+    *boxesh.as_mut_ptr().cast::<u128>().add(49) = 0;
+
+    let mut i = 1;
+    let mut offset = 51;
     loop {
-        loop {
-            *grid_ptr = *GRID_LUT.get_unchecked(*input_ptr as usize);
-            input_ptr = input_ptr.add(1);
-            grid_ptr = grid_ptr.add(1);
-            if input_ptr == input_ptr_goal {
+        let block = u8x64::from_slice(input.get_unchecked(offset..offset + 64));
+        let maskw = block.simd_eq(u8x64::splat(b'#')).to_int();
+        let maskb = block.simd_eq(u8x64::splat(b'O')).to_int();
+        let (maskw1, maskw2) = maskw.interleave(maskw);
+        let (maskb1, maskb2) = maskb.interleave(i8x64::splat(0));
+        let maskw1 = mask8x64::from_int_unchecked(maskw1).to_bitmask();
+        let maskw2 = mask8x64::from_int_unchecked(maskw2).to_bitmask();
+        let maskb1 = mask8x64::from_int_unchecked(maskb1).to_bitmask();
+        let maskb2 = mask8x64::from_int_unchecked(maskb2).to_bitmask();
+        *wallsh.as_mut_ptr().cast::<u128>().add(i) = (maskw1 as u128) | ((maskw2 as u128) << 64);
+        *boxesh.as_mut_ptr().cast::<u128>().add(i) = (maskb1 as u128) | ((maskb2 as u128) << 64);
+
+        i += 1;
+        offset += 51;
+        if i == 49 {
+            break;
+        }
+    }
+
+    let wallsh = wallsh.assume_init_ref();
+    let boxesh = boxesh.assume_init_mut();
+
+    let mut ptr = input.as_ptr().add(50 * 51 + 1).sub(1);
+    let mut ptr_goal;
+    let ptr_goal_end = ptr.add(20 * 1001);
+    loop {
+        ptr_goal = ptr.add(1001);
+        'mov: loop {
+            ptr = ptr.add(1);
+            if ptr == ptr_goal {
                 break;
             }
-        }
-        input_ptr = input_ptr.add(1);
-        input_ptr_goal = input_ptr_goal.add(51);
-        if input_ptr_goal == input_ptr_end {
-            break;
-        }
-    }
-    let grid = grid.assume_init_mut();
 
-    'instr: for &instr in input.get_unchecked(50 * 51 + 1..) {
-        let d = *D2_LUT.get_unchecked(instr as usize) as isize as usize;
-        let new_pos = pos.wrapping_add(d);
-        if *grid.get_unchecked(new_pos) == b'.' {
-            pos = new_pos;
-            continue;
-        }
+            let instr = *ptr;
+            let dx = *D1_LUTX.get_unchecked(instr as usize) as isize;
+            let dy = *D1_LUTY.get_unchecked(instr as usize) as isize;
+            let (nx, mut ny) = (x.wrapping_add_signed(dx), y.wrapping_add_signed(dy));
 
-        match instr {
-            b'<' => {
-                let d = -1isize as usize;
-                let new_pos = pos.wrapping_add(d);
-                let mut search_pos = new_pos;
+            let occupied = *boxesh.get_unchecked(ny)
+                | (*boxesh.get_unchecked(ny) << 1)
+                | *wallsh.get_unchecked(ny);
 
-                while *grid.get_unchecked(search_pos) == b']' {
-                    search_pos = search_pos.wrapping_add(d).wrapping_add(d);
-                }
-                if *grid.get_unchecked(search_pos) == b'.' {
-                    while search_pos != new_pos {
-                        *grid.get_unchecked_mut(search_pos) = b'[';
-                        *grid.get_unchecked_mut(search_pos.wrapping_sub(d)) = b']';
-                        search_pos = search_pos.wrapping_sub(d).wrapping_sub(d);
-                    }
-                    *grid.get_unchecked_mut(new_pos) = b'.';
-                    pos = new_pos;
-                }
+            if occupied & (1 << nx) == 0 {
+                (x, y) = (nx, ny);
+                continue;
             }
-            b'>' => {
-                let d = 1isize as usize;
-                let new_pos = pos.wrapping_add(d);
-                let mut search_pos = new_pos;
 
-                while *grid.get_unchecked(search_pos) == b'[' {
-                    search_pos = search_pos.wrapping_add(d).wrapping_add(d);
-                }
-                if *grid.get_unchecked(search_pos) == b'.' {
-                    while search_pos != new_pos {
-                        *grid.get_unchecked_mut(search_pos) = b']';
-                        *grid.get_unchecked_mut(search_pos.wrapping_sub(d)) = b'[';
-                        search_pos = search_pos.wrapping_sub(d).wrapping_sub(d);
-                    }
-                    *grid.get_unchecked_mut(new_pos) = b'.';
-                    pos = new_pos;
-                }
+            if *wallsh.get_unchecked(ny) & (1 << nx) != 0 {
+                continue;
             }
-            b'^' | b'v' => {
-                let mut queue = u16x64::splat(0);
-                let mut queue_start = 0;
-                let mut queue_end = 1;
-                queue.as_mut_array()[0] = new_pos as u16;
 
-                macro_rules! add {
-                    ($pos:expr) => {{
-                        let pos = $pos as u16;
-                        if !queue.simd_eq(u16x64::splat(pos as u16)).any() {
-                            *queue.as_mut_array().get_unchecked_mut(queue_end) = pos;
-                            queue_end += 1;
+            let (mut sx, mut sy) = (nx, ny);
+
+            match instr {
+                b'<' => {
+                    let boxes = boxesh.get_unchecked(ny);
+                    let occupied = boxes | (boxes << 1);
+                    let len = (occupied << (127 - nx)).leading_ones() as usize;
+                    let mask = ((1 << len) - 1) << (nx - len);
+                    let newm = u128::from_ne_bytes([0b01010101; 16]) << (nx - len);
+                    sx -= len;
+
+                    if *wallsh.get_unchecked(sy) & (1 << sx) == 0 {
+                        *boxesh.get_unchecked_mut(sy) &= !mask;
+                        *boxesh.get_unchecked_mut(ny) |= newm & mask;
+                        (x, y) = (nx, ny);
+                    }
+                }
+                b'>' => {
+                    let boxes = boxesh.get_unchecked(ny);
+                    let occupied = boxes | (boxes << 1);
+                    let len = (occupied >> nx).trailing_ones() as usize;
+                    let mask = ((1u128 << len) - 1) << nx;
+                    let newm = u128::from_ne_bytes([0b01010101; 16]) << (nx + 1);
+                    sx += len;
+
+                    if *wallsh.get_unchecked(sy) & (1 << sx) == 0 {
+                        *boxesh.get_unchecked_mut(sy) &= !mask;
+                        *boxesh.get_unchecked_mut(ny) |= newm & mask;
+                        (x, y) = (nx, ny);
+                    }
+                }
+                b'^' => {
+                    let mut hit = 1 << nx;
+                    let boxes_hit = *boxesh.get_unchecked(sy) & (hit | (hit >> 1));
+                    hit = boxes_hit | (boxes_hit << 1);
+                    loop {
+                        sy -= 1;
+                        if (*wallsh.get_unchecked(sy) & hit) != 0 {
+                            continue 'mov;
                         }
-                    }};
-                }
-
-                macro_rules! try_add {
-                    ($pos:expr) => {{
-                        let pos = $pos as u16;
-                        if *grid.get_unchecked(pos as usize) != b'.' {
-                            add!(pos);
+                        let boxes_hit = *boxesh.get_unchecked(sy) & (hit | (hit >> 1));
+                        if boxes_hit == 0 {
+                            break;
                         }
-                    }};
-                }
+                        hit = boxes_hit | (boxes_hit << 1);
+                    }
 
-                while queue_start != queue_end {
-                    let search_pos = *queue.as_array().get_unchecked(queue_start) as usize;
-                    queue_start += 1;
-                    let b = *grid.get_unchecked(search_pos);
+                    (x, y) = (nx, ny);
 
-                    if b == b'#' {
-                        continue 'instr;
-                    } else if b == b'[' {
-                        add!(search_pos + 1);
-                        try_add!(search_pos.wrapping_add(d));
-                        try_add!(search_pos.wrapping_add(d) + 1);
-                    } else if b == b']' {
-                        add!(search_pos - 1);
-                        try_add!(search_pos.wrapping_add(d));
-                        try_add!(search_pos.wrapping_add(d) - 1);
-                    } else {
-                        std::hint::unreachable_unchecked();
+                    let mut boxes_hit = 0;
+                    let mut hit = 0b11 << (nx - 1);
+
+                    loop {
+                        let old_ny = *boxesh.get_unchecked(ny);
+                        *boxesh.get_unchecked_mut(ny) = (old_ny & !hit) | boxes_hit;
+                        boxes_hit = old_ny & hit;
+                        hit = boxes_hit | (boxes_hit << 1) | (boxes_hit >> 1);
+                        if ny == sy {
+                            break;
+                        }
+                        ny -= 1;
                     }
                 }
+                b'v' => {
+                    let mut hit = 1 << nx;
+                    let boxes_hit = *boxesh.get_unchecked(sy) & (hit | (hit >> 1));
+                    hit = boxes_hit | (boxes_hit << 1);
+                    loop {
+                        sy += 1;
+                        if (*wallsh.get_unchecked(sy) & hit) != 0 {
+                            continue 'mov;
+                        }
+                        let boxes_hit = *boxesh.get_unchecked(sy) & (hit | (hit >> 1));
+                        if boxes_hit == 0 {
+                            break;
+                        }
+                        hit = boxes_hit | (boxes_hit << 1);
+                    }
 
-                for &pos in queue.as_array().get_unchecked(..queue_end).iter().rev() {
-                    let pos = pos as usize;
-                    *grid.get_unchecked_mut(pos.wrapping_add(d)) = *grid.get_unchecked(pos);
-                    *grid.get_unchecked_mut(pos) = b'.';
+                    (x, y) = (nx, ny);
+
+                    let mut boxes_hit = 0;
+                    let mut hit = 0b11 << (nx - 1);
+
+                    loop {
+                        let old_ny = *boxesh.get_unchecked(ny);
+                        *boxesh.get_unchecked_mut(ny) = (old_ny & !hit) | boxes_hit;
+                        boxes_hit = old_ny & hit;
+                        hit = boxes_hit | (boxes_hit << 1) | (boxes_hit >> 1);
+                        if ny == sy {
+                            break;
+                        }
+                        ny += 1;
+                    }
                 }
-
-                pos = new_pos;
+                _ => std::hint::unreachable_unchecked(),
             }
-            _ => std::hint::unreachable_unchecked(),
         }
-    }
-
-    // TODO: One pass?
-    let mut tot = 0;
-    let mut offset = 100;
-    let mut y = 1;
-    loop {
-        let block = u8x64::from_slice(grid.get_unchecked(offset..offset + 64));
-        let mut mask = block.simd_eq(u8x64::splat(b'[')).to_bitmask();
-        while mask != 0 {
-            let x = mask.trailing_zeros();
-            mask &= !(1 << x);
-            tot += 100 * y + x;
-        }
-
-        let block = u8x64::from_slice(grid.get_unchecked(offset + 64..offset + 128));
-        let mut mask = block.simd_eq(u8x64::splat(b'[')).to_bitmask() & (u64::MAX >> (128 - 100));
-        while mask != 0 {
-            let x = mask.trailing_zeros();
-            mask &= !(1 << x);
-            tot += 100 * y + (64 + x);
-        }
-
-        y += 1;
-        offset += 100;
-        if y == 49 {
+        if ptr_goal == ptr_goal_end {
             break;
         }
     }
 
-    tot
+    static X_ADD: [i8x32; 4] = {
+        let mut add1 = [0; 32];
+        let mut i = 0;
+        while i < 32 {
+            add1[i] = i as i8;
+            i += 1;
+        }
+
+        let mut add2 = [0; 32];
+        while i < 64 {
+            add2[i - 32] = i as i8;
+            i += 1;
+        }
+
+        let mut add3 = [0; 32];
+        while i < 96 {
+            add3[i - 64] = i as i8;
+            i += 1;
+        }
+
+        let mut add4 = [0; 32];
+        while i < 128 {
+            add4[i - 96] = i as i8;
+            i += 1;
+        }
+
+        [
+            i8x32::from_array(add1),
+            i8x32::from_array(add2),
+            i8x32::from_array(add3),
+            i8x32::from_array(add4),
+        ]
+    };
+
+    let mut tot_y = u64x4::splat(0);
+    let mut tot_x = u64x4::splat(0);
+    let zero = i8x32::splat(0);
+    for y in 1..49 {
+        let by = i8x32::splat(y as i8);
+
+        let b = *boxesh.get_unchecked(y);
+        let b1 = b as u32;
+        let b2 = (b >> 32) as u32;
+        let b3 = (b >> 64) as u32;
+        let b4 = (b >> 96) as u32 & 0b1111;
+
+        let m1 = mask8x32::from_bitmask(b1 as u64).to_int();
+        let m2 = mask8x32::from_bitmask(b2 as u64).to_int();
+
+        let bx12 = (X_ADD[0] & m1) + (X_ADD[1] & m2);
+        tot_x += u64x4::from(_mm256_sad_epu8(bx12.into(), zero.into()));
+
+        let by12 = (by & m1) + (by & m2);
+        tot_y += u64x4::from(_mm256_sad_epu8(by12.into(), zero.into()));
+
+        let m3 = mask8x32::from_bitmask(b3 as u64).to_int();
+        let m4 = mask8x32::from_bitmask(b4 as u64).to_int();
+
+        let bx34 = (X_ADD[2] & m3) + (X_ADD[3] & m4);
+        tot_x += u64x4::from(_mm256_sad_epu8(bx34.into(), zero.into()));
+
+        let by34 = (by & m3) + (by & m4);
+        tot_y += u64x4::from(_mm256_sad_epu8(by34.into(), zero.into()));
+    }
+    (u64x4::splat(100) * tot_y + tot_x).reduce_sum() as u32
 }
