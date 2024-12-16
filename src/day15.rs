@@ -208,34 +208,32 @@ unsafe fn inner_part2(input: &str) -> u32 {
                     *queue.as_mut_array().get_unchecked_mut(0) = (new_pos - 1) as u16;
                 }
 
-                macro_rules! add {
-                    ($pos:expr) => {{
-                        let pos = $pos as u16;
-                        if *grid.get_unchecked(pos as usize) == b'[' {
-                            if !queue.simd_eq(u16x64::splat(pos as u16)).any() {
-                                *queue.as_mut_array().get_unchecked_mut(queue_end) = pos;
-                                queue_end += 1;
-                            }
-                        }
-                    }};
-                }
-
-                macro_rules! try_add {
-                    ($pos:expr) => {{
-                        let pos = $pos as u16;
-                        if *grid.get_unchecked(pos as usize) == b'#' {
-                            continue 'instr;
-                        }
-                        add!(pos)
-                    }};
-                }
-
                 while queue_start != queue_end {
                     let search_pos = *queue.as_array().get_unchecked(queue_start) as usize;
                     queue_start += 1;
-                    add!(search_pos.wrapping_add(d) - 1);
-                    try_add!(search_pos.wrapping_add(d));
-                    try_add!(search_pos.wrapping_add(d) + 1);
+
+                    let nc = search_pos.wrapping_add(d);
+                    let nl = nc - 1;
+                    let nr = nc + 1;
+
+                    if *grid.get_unchecked(nc) == b'[' {
+                        *queue.as_mut_array().get_unchecked_mut(queue_end) = nc as u16;
+                        queue_end += 1;
+                    } else {
+                        if *grid.get_unchecked(nc) == b'#' || *grid.get_unchecked(nr) == b'#' {
+                            continue 'instr;
+                        }
+                        if *grid.get_unchecked(nl) == b'[' {
+                            if !queue.simd_eq(u16x64::splat(nl as u16)).any() {
+                                *queue.as_mut_array().get_unchecked_mut(queue_end) = nl as u16;
+                                queue_end += 1;
+                            }
+                        }
+                        if *grid.get_unchecked(nr) == b'[' {
+                            *queue.as_mut_array().get_unchecked_mut(queue_end) = nr as u16;
+                            queue_end += 1;
+                        }
+                    }
                 }
 
                 for &pos in queue.as_array().get_unchecked(..queue_end).iter().rev() {
