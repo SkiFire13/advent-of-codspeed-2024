@@ -28,6 +28,7 @@ pub fn part2(input: &str) -> u64 {
 #[allow(long_running_const_eval)]
 static LUT: [u64; (4 * 4 * 4 * 4) * (8 * 8 * 8)] =
     unsafe { std::mem::transmute(*include_bytes!(concat!(env!("OUT_DIR"), "/d17p2.lut"))) };
+// [0; (4 * 4 * 4 * 4) * (8 * 8 * 8)];
 
 static LUT2: [usize; 6] = {
     let mut lut = [0; 6];
@@ -44,23 +45,6 @@ static mut PART1_OUTPUT: [u8; 2 * 9] = [b','; 2 * 9];
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part1(input: &str) -> &'static str {
     let input = input.as_bytes();
-    let mut ptr = input.as_ptr().add(input.len()).sub(26);
-
-    let xor1 = *ptr - b'0';
-    ptr = ptr.add(6);
-
-    let mut xor2ptr = std::ptr::null();
-    let mut c_last = true;
-    for _ in 0..3 {
-        if *ptr == b'1' {
-            xor2ptr = ptr;
-            c_last = false;
-        } else if *ptr == b'4' {
-            c_last = true;
-        }
-        ptr = ptr.add(4);
-    }
-    let xor2 = *xor2ptr.add(2) - b'0';
 
     let mut ptr = input.as_ptr().add(12);
     let mut a = *ptr as u64 - b'0' as u64;
@@ -70,9 +54,25 @@ unsafe fn inner_part1(input: &str) -> &'static str {
         ptr = ptr.add(1);
     }
 
+    let mut ptr = input.as_ptr().add(input.len()).sub(26);
+    let xor1 = *ptr - b'0';
+    ptr = ptr.add(6);
+    let mut xor2_ptr = std::ptr::null();
+    let mut four_ptr = std::ptr::null();
+    for _ in 0..3 {
+        if *ptr == b'1' {
+            xor2_ptr = ptr;
+        }
+        if *ptr == b'4' {
+            four_ptr = ptr;
+        }
+        ptr = ptr.add(4);
+    }
+    let xor2 = *xor2_ptr.add(2) - b'0';
+
     let mut out_len = 0;
 
-    if c_last {
+    if xor2_ptr < four_ptr {
         while a != 0 {
             let mut b = (a & 0b111) as u8;
             b ^= xor1;
