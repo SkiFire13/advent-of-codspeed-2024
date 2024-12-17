@@ -50,3 +50,10 @@ rayon = "1"
 # radsort = "0.1"
 # pathfinding = "4"
 # bit-set = "0.8"
+
+codspeed-criterion-compat = { version = "2.7.2", default-features = false }
+
+[[bench]]
+name = "bench"
+harness = false
+path = "bench.rs"
