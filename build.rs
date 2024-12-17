@@ -186,5 +186,4 @@ fn make_d17_lut(path: &Path) {
 
     let lut_u8 = unsafe { std::slice::from_raw_parts(lut.as_ptr().cast::<u8>(), 8 * lut.len()) };
     std::fs::write(path, lut_u8).unwrap();
-    std::fs::write("foo.txt", format!("{}", lut.len()));
 }
