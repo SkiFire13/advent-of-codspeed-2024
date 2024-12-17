@@ -73,7 +73,7 @@ unsafe fn inner_part1(input: &str) -> &'static str {
     let mut out_len = 0;
 
     if xor2_ptr < four_ptr {
-        while a != 0 {
+        loop {
             let mut b = (a & 0b111) as u8;
             b ^= xor1;
 
@@ -84,9 +84,13 @@ unsafe fn inner_part1(input: &str) -> &'static str {
 
             *PART1_OUTPUT.get_unchecked_mut(out_len) = (b & 0b111) + b'0';
             out_len += 2;
+
+            if a == 0 {
+                break;
+            }
         }
     } else {
-        while a != 0 {
+        loop {
             let mut b = (a & 0b111) as u8;
             b ^= xor1;
 
@@ -97,6 +101,10 @@ unsafe fn inner_part1(input: &str) -> &'static str {
 
             *PART1_OUTPUT.get_unchecked_mut(out_len) = (b & 0b111) + b'0';
             out_len += 2;
+
+            if a == 0 {
+                break;
+            }
         }
     }
 
