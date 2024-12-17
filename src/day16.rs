@@ -9,7 +9,7 @@
 use std::mem::MaybeUninit;
 
 pub fn run(input: &str) -> i64 {
-    part1(input) as i64
+    part2(input) as i64
 }
 
 #[inline(always)]
@@ -170,21 +170,28 @@ unsafe fn inner_part2(input: &str) -> u32 {
     let mut next_id = 4;
 
     let mut moves = [MaybeUninit::<[(u16, u8, u8); 2]>::uninit(); 3000];
-    moves[0] = MaybeUninit::new([(u16::MAX, 0, 0); 2]);
-    moves[1] = MaybeUninit::new([(u16::MAX, 0, 0); 2]);
-    moves[2] = MaybeUninit::new([(u16::MAX, 0, 0); 2]);
-    moves[3] = MaybeUninit::new([(u16::MAX, 0, 0); 2]);
+    moves[START_H_ID as usize] = MaybeUninit::new([(u16::MAX, 0, 0); 2]);
+    moves[START_V_ID as usize] = MaybeUninit::new([(u16::MAX, 0, 0); 2]);
+    moves[END_H_ID as usize] = MaybeUninit::new([(u16::MAX, 0, 0); 2]);
+    moves[END_V_ID as usize] = MaybeUninit::new([(u16::MAX, 0, 0); 2]);
 
-    let mut queue = [MaybeUninit::uninit(); 256];
-    *queue.get_unchecked_mut(0).as_mut_ptr() = (START, RIGHT_ID, START_H_ID);
-    *queue.get_unchecked_mut(1).as_mut_ptr() = (START, UP_ID, START_V_ID);
-    let mut queue_len = 2;
+    let mut queue = [MaybeUninit::uninit(); 512];
+    let mut queue_len = 0;
+    if *input.get_unchecked((START as usize).wrapping_add(RIGHT)) != b'#' {
+        *queue.get_unchecked_mut(queue_len).as_mut_ptr() = (START, RIGHT_ID, START_H_ID);
+        queue_len += 1;
+    }
+    if *input.get_unchecked((START as usize).wrapping_add(UP)) != b'#' {
+        *queue.get_unchecked_mut(queue_len).as_mut_ptr() = (START, UP_ID, START_V_ID);
+        queue_len += 1;
+    }
 
     'queue: while queue_len != 0 {
         queue_len -= 1;
         let (pos, start_dir_id, start_id) = *queue.get_unchecked(queue_len).as_ptr();
 
-        if moves[start_id as usize].assume_init()[start_dir_id.parity() as usize].0 != u16::MAX {
+        let m = &*moves.get_unchecked(start_id as usize).as_ptr();
+        if m.get_unchecked(start_dir_id.parity() as usize).0 != u16::MAX {
             continue;
         }
 
@@ -197,6 +204,7 @@ unsafe fn inner_part2(input: &str) -> u32 {
         let mut dir1 = *DIR_MAP.get_unchecked(dir_id.perp1().idx());
         let mut dir2 = *DIR_MAP.get_unchecked(dir_id.perp2().idx());
 
+        debug_assert_ne!(input[pos] as char, '#');
         debug_assert_ne!(
             input[pos.wrapping_add(dir)] as char,
             '#',
@@ -222,14 +230,16 @@ unsafe fn inner_part2(input: &str) -> u32 {
                 if cont {
                     // go straight
                     continue 'inner;
-                } else {
+                } else if pos != START as usize && pos != END as usize {
                     // deadend
                     continue 'queue;
                 }
-            } else if cont || (cont1 && cont2) || pos == END as usize {
+            }
+
+            if cont || (cont1 && cont2) || pos == START as usize || pos == END as usize {
                 // new node
 
-                let mut dest_id = *ids.get_unchecked(pos);
+                let mut dest_id = *ids.get_unchecked(pos) | dir_id.kind();
                 if dest_id == u16::MAX {
                     dest_id = next_id | dir_id.kind();
 
@@ -267,6 +277,30 @@ unsafe fn inner_part2(input: &str) -> u32 {
                     }
                 }
 
+                // if start_id & !1 == 0 && dest_id & !1 == 4 {
+                //     println!(
+                //         "setting! {start_id} -> {dest_id} [{} {}] {turns} {tiles}",
+                //         dir_id.invert().parity(),
+                //         dir_id.kind(),
+                //     );
+                // }
+
+                // if start_id & !1 == 4 && dest_id & !1 == 10 {
+                //     println!(
+                //         "setting! {start_id} -> {dest_id} [{} {}] {turns} {tiles}",
+                //         dir_id.invert().parity(),
+                //         dir_id.kind(),
+                //     );
+                // }
+
+                // if start_id & !1 == 10 && dest_id & !1 == 4 {
+                //     println!(
+                //         "setting! {start_id} -> {dest_id} [{} {}] {turns} {tiles}",
+                //         dir_id.invert().parity(),
+                //         dir_id.kind(),
+                //     );
+                // }
+
                 *(*moves.get_unchecked_mut(start_id as usize).as_mut_ptr())
                     .get_unchecked_mut(start_dir_id.parity()) = (dest_id, turns, tiles);
                 *(*moves.get_unchecked_mut(dest_id as usize).as_mut_ptr())
@@ -292,29 +326,33 @@ unsafe fn inner_part2(input: &str) -> u32 {
     }
 
     // TODO reuse previous queue
-    let mut queue = MaybeUninit::<[u64; 1024]>::uninit();
+    let mut queue = MaybeUninit::<[u64; 128]>::uninit();
     *queue.as_mut_ptr().cast::<[u32; 2]>().add(0) = [START_H_ID as u32, 0];
     let mut queue_len = 1;
 
     macro_rules! mk_queue_slice {
         () => {{
-            debug_assert!(queue_len <= 1024);
+            debug_assert!(queue_len <= 128);
             std::slice::from_raw_parts_mut(queue.as_mut_ptr().cast::<u64>(), queue_len)
         }};
     }
 
     let (_, costs, _) = ids.align_to_mut::<u32>();
     let costs = &mut costs[..next_id as usize];
-    costs.fill(u32::MAX);
+    costs.fill(u32::MAX / 2);
 
-    loop {
+    let end_cost = loop {
         // TODO: Binary queue
         let [id, cost] = *queue.as_ptr().cast::<[u32; 2]>();
         bheap::pop(mk_queue_slice!());
         queue_len -= 1;
 
-        // println!("{cost}");
+        // let pos = positions[id as usize / 2];
+        // let (x, y) = (pos % 142, pos / 142);
+        // println!("{id:>4}: {x:>3} {y:>3} | {cost}");
         // println!("{:?}", mk_queue_slice!());
+
+        // println!("{id:>4} | {cost}");
 
         // if cost > 10000 {
         //     panic!();
@@ -326,8 +364,11 @@ unsafe fn inner_part2(input: &str) -> u32 {
         }
         *cost_ref = cost;
 
+        let cost_swap = costs.get_unchecked_mut(id as usize ^ 1);
+        *cost_swap = (*cost_swap).min(cost + 1000);
+
         if id as u16 & !1 == END_H_ID {
-            break;
+            break cost;
         }
 
         let m = *moves.get_unchecked(id as usize).as_ptr();
@@ -348,6 +389,12 @@ unsafe fn inner_part2(input: &str) -> u32 {
             bheap::push(mk_queue_slice!());
         }
 
+        // if *costs.get_unchecked(id as usize ^ 1) > cost + 1000 {
+        //     *queue.as_mut_ptr().cast::<[u32; 2]>().add(queue_len) = [id as u32 ^ 1, cost + 1000];
+        //     queue_len += 1;
+        //     bheap::push(mk_queue_slice!());
+        // }
+
         let m = *moves.get_unchecked(id as usize ^ 1).as_ptr();
         let (next_id, turns, tiles) = m[0];
         let next_cost = cost + turns as u32 * 1000 + 1000 + tiles as u32;
@@ -365,14 +412,134 @@ unsafe fn inner_part2(input: &str) -> u32 {
             queue_len += 1;
             bheap::push(mk_queue_slice!());
         }
+    };
+
+    while queue_len != 0 {
+        let [id, cost] = *queue.as_ptr().cast::<[u32; 2]>();
+
+        if cost > end_cost {
+            break;
+        }
+
+        let cost_ref = costs.get_unchecked_mut(id as usize);
+        if *cost_ref > cost {
+            *cost_ref = cost;
+            let cost_swap = costs.get_unchecked_mut(id as usize ^ 1);
+            *cost_swap = (*cost_swap).min(cost + 1000);
+        }
+
+        bheap::pop(mk_queue_slice!());
+        queue_len -= 1;
     }
 
-    println!(
-        "{}",
-        std::cmp::min(costs[END_H_ID as usize], costs[END_V_ID as usize])
-    );
+    queue_len = 0;
+    if *costs.get_unchecked(END_H_ID as usize) == end_cost {
+        *queue.as_mut_ptr().cast::<[u32; 2]>().add(0) = [END_H_ID as u32, end_cost];
+        queue_len += 1;
+    }
+    if *costs.get_unchecked(END_V_ID as usize) == end_cost {
+        *queue.as_mut_ptr().cast::<[u32; 2]>().add(0) = [END_V_ID as u32, end_cost];
+        queue_len += 1;
+    }
 
-    0
+    // println!("{:?} {:?}", costs[4], costs[5]);
+    // println!("{:?} {:?}", costs[0], costs[1]);
+
+    // println!("{:?} {:?}", moves[4].assume_init(), moves[5].assume_init());
+    // println!("{:?} {:?}", moves[0].assume_init(), moves[1].assume_init());
+
+    #[cfg(debug_assertions)]
+    let mut seen = std::collections::HashSet::new();
+
+    let mut count = 0;
+    while queue_len != 0 {
+        queue_len -= 1;
+        let [id, ex_cost] = *queue.as_mut_ptr().cast::<[u32; 2]>().add(queue_len);
+
+        // if id == START_H_ID as _ {
+        //     println!("start h! 1");
+        // }
+        // if id == START_V_ID as _ {
+        //     println!("start v! 1");
+        // }
+
+        const SMASK: u32 = 1 << 31;
+
+        let cost_ref = costs.get_unchecked_mut(id as usize);
+        if *cost_ref != ex_cost {
+            debug_assert!((*cost_ref > ex_cost && *cost_ref < end_cost) || *cost_ref & SMASK != 0);
+            continue;
+        }
+        *cost_ref |= SMASK;
+
+        // println!("{id}, {ex_cost}");
+
+        #[cfg(debug_assertions)]
+        debug_assert!(seen.insert(id));
+
+        if *costs.get_unchecked(id as usize ^ 1) & SMASK == 0 {
+            #[cfg(debug_assertions)]
+            debug_assert!(!seen.contains(&(id ^ 1)));
+            count += 1;
+        } else {
+            #[cfg(debug_assertions)]
+            debug_assert!(seen.contains(&(id ^ 1)));
+        }
+
+        // if id == START_H_ID as _ {
+        //     println!("start h!");
+        // }
+        // if id == START_V_ID as _ {
+        //     println!("start v!");
+        // }
+
+        let m = *moves.get_unchecked(id as usize).as_ptr();
+        let (next_id, turns, tiles) = m[0];
+        let next_cost = ex_cost.wrapping_sub(turns as u32 * 1000 + tiles as u32);
+        if next_id != u16::MAX && *costs.get_unchecked(next_id as usize) & !SMASK == next_cost {
+            // TODO: insert with extra_cost
+            *queue.as_mut_ptr().cast::<[u32; 2]>().add(queue_len) = [next_id as u32, next_cost];
+            queue_len += 1;
+            count += tiles as u32 - 1;
+        }
+        let (next_id, turns, tiles) = m[1];
+        let next_cost = ex_cost.wrapping_sub(turns as u32 * 1000 + tiles as u32);
+        if next_id != u16::MAX && *costs.get_unchecked(next_id as usize) & !SMASK == next_cost {
+            // TODO: insert with extra_cost
+            *queue.as_mut_ptr().cast::<[u32; 2]>().add(queue_len) = [next_id as u32, next_cost];
+            queue_len += 1;
+            count += tiles as u32 - 1;
+        }
+
+        let next_cost = ex_cost.wrapping_sub(1000);
+        if *costs.get_unchecked(id as usize ^ 1) & !SMASK == next_cost {
+            // TODO: insert with extra_cost + 1000
+            *queue.as_mut_ptr().cast::<[u32; 2]>().add(queue_len) = [id as u32 ^ 1, next_cost];
+            queue_len += 1;
+        }
+
+        // let m = *moves.get_unchecked(id as usize ^ 1).as_ptr();
+        // let (next_id, turns, tiles) = m[0];
+        // let next_cost = ex_cost.wrapping_sub(turns as u32 * 1000 + 1000 + tiles as u32);
+        // if next_id != u16::MAX && *costs.get_unchecked(next_id as usize) & !SMASK == next_cost {
+        //     // TODO: insert with extra_cost + 1000
+        //     *queue.as_mut_ptr().cast::<[u32; 2]>().add(queue_len) = [next_id as u32, next_cost];
+        //     queue_len += 1;
+        //     count += tiles as u32 - 1;
+        // }
+        // let (next_id, turns, tiles) = m[1];
+        // let next_cost = ex_cost.wrapping_sub(turns as u32 * 1000 + 1000 + tiles as u32);
+        // if next_id != u16::MAX && *costs.get_unchecked(next_id as usize) & !SMASK == next_cost {
+        //     // TODO: insert with extra_cost + 1000
+        //     *queue.as_mut_ptr().cast::<[u32; 2]>().add(queue_len) = [next_id as u32, next_cost];
+        //     queue_len += 1;
+        //     count += tiles as u32 - 1;
+        // }
+    }
+    // println!("{:?} {:?}", costs[4], costs[5]);
+    // println!("{:?} {:?}", costs[0], costs[1]);
+
+    count
 }
 
 mod bheap {
