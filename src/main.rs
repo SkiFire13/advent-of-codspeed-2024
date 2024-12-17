@@ -11,12 +11,22 @@ fn bench<D: std::fmt::Display>(mut f: impl FnMut() -> D) {
     println!("Solution: {sol}");
 }
 
-static INPUT: OnceLock<String> = OnceLock::new();
+static INPUT: OnceLock<&'static str> = OnceLock::new();
 
 macro_rules! run {
     ($day:ident, $part:ident) => {
         advent_of_codspeed_2024::$day::$part(INPUT.get_or_init(|| {
-            std::fs::read_to_string(concat!("input/2024/", stringify!($day), ".txt")).unwrap()
+            #[cfg(not(miri))]
+            {
+                std::fs::read_to_string(concat!("input/2024/", stringify!($day), ".txt"))
+                    .unwrap()
+                    .leak()
+            }
+
+            #[cfg(miri)]
+            {
+                include_str!(concat!("../input/2024/", stringify!($day), ".txt"))
+            }
         }))
     };
 }
