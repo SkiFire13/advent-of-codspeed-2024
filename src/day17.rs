@@ -78,43 +78,32 @@ unsafe fn inner_part1(input: &str) -> &'static str {
         }
         ptr = ptr.add(4);
     }
-    let xor2 = *xor2_ptr.add(2) - b'0';
+
+    let mut xor2 = 0;
+    let mut xor3 = 0;
+    if xor2_ptr < four_ptr {
+        xor2 = *xor2_ptr.add(2) - b'0';
+    } else {
+        xor3 = *xor2_ptr.add(2) - b'0';
+    }
 
     let mut out_len = 0;
 
-    if xor2_ptr < four_ptr {
-        loop {
-            let mut b = (a & 0b111) as u8;
-            b ^= xor1;
+    loop {
+        let mut b = (a & 0b111) as u8;
+        b ^= xor1;
 
-            let c = a >> b;
-            b ^= xor2;
-            b ^= c as u8;
-            a >>= 3;
+        let c = a >> b;
+        b ^= xor2;
+        b ^= c as u8;
+        b ^= xor3;
+        a >>= 3;
 
-            *PART1_OUTPUT.get_unchecked_mut(out_len) = (b & 0b111) + b'0';
-            out_len += 2;
+        *PART1_OUTPUT.get_unchecked_mut(out_len) = (b & 0b111) + b'0';
+        out_len += 2;
 
-            if a == 0 {
-                break;
-            }
-        }
-    } else {
-        loop {
-            let mut b = (a & 0b111) as u8;
-            b ^= xor1;
-
-            let c = a >> b;
-            b ^= c as u8;
-            b ^= xor2;
-            a >>= 3;
-
-            *PART1_OUTPUT.get_unchecked_mut(out_len) = (b & 0b111) + b'0';
-            out_len += 2;
-
-            if a == 0 {
-                break;
-            }
+        if a == 0 {
+            break;
         }
     }
 
