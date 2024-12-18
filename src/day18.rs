@@ -217,7 +217,7 @@ unsafe fn inner_part2(input: &str) -> &'static str {
         const RIGHT: usize = 1;
         const UP: usize = -73isize as usize;
         const DOWN: usize = 73;
-        for dir in [LEFT, RIGHT, UP, DOWN] {
+        for dir in [LEFT, UP, RIGHT, DOWN] {
             let new_pos = pos.wrapping_add(dir);
 
             let level = levels.get_unchecked_mut(new_pos);
