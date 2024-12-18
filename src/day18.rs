@@ -221,13 +221,11 @@ unsafe fn inner_part2(input: &str) -> &'static str {
             let new_pos = pos.wrapping_add(dir);
 
             let level = levels.get_unchecked_mut(new_pos);
-            if *level != u16::MAX {
-                if *level <= max {
-                    *stack.get_unchecked_mut(stack_len).as_mut_ptr() = new_pos as u16;
-                    stack_len += 1;
-                }
-                *level = u16::MAX;
+            if *level <= max {
+                *stack.get_unchecked_mut(stack_len).as_mut_ptr() = new_pos as u16;
+                stack_len += 1;
             }
+            *level = u16::MAX;
         }
 
         if stack_len == 0 {
