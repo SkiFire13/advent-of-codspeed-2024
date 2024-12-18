@@ -205,9 +205,6 @@ unsafe fn inner_part2(input: &str) -> &'static str {
     stack_len += 1;
     *seen.get_unchecked_mut(START / 64) |= 1 << (START % 64);
 
-    let mut queue = [MaybeUninit::<u16>::uninit(); 2048];
-    let mut queue_len = 0;
-
     let mut max = 0;
 
     loop {
@@ -234,31 +231,20 @@ unsafe fn inner_part2(input: &str) -> &'static str {
                 if level <= max {
                     *stack.get_unchecked_mut(stack_len).as_mut_ptr() = new_pos as u16;
                     stack_len += 1;
-                } else {
-                    *queue.get_unchecked_mut(queue_len).as_mut_ptr() = level;
-                    queue_len += 1;
-                    bheap::push(std::slice::from_raw_parts_mut(
-                        queue.as_mut_ptr().cast::<u16>(),
-                        queue_len,
-                    ));
                 }
             }
         }
 
         if stack_len == 0 {
-            debug_assert!(queue_len > 0);
-            let level = *queue.get_unchecked(0).as_ptr();
-            bheap::pop(std::slice::from_raw_parts_mut(
-                queue.as_mut_ptr().cast::<u16>(),
-                queue_len,
-            ));
-            queue_len -= 1;
-
-            *stack[0].as_mut_ptr() = *levels_list.get_unchecked(level as usize - 1).as_ptr();
-            stack_len = 1;
-
-            debug_assert!(level > max);
-            max = level;
+            loop {
+                max += 1;
+                let pos = *levels_list.get_unchecked(max as usize - 1).as_ptr() as usize;
+                if *seen.get_unchecked(pos / 64) & (1 << (pos % 64)) != 0 {
+                    *stack[0].as_mut_ptr() = pos as u16;
+                    stack_len = 1;
+                    break;
+                }
+            }
         }
     }
 
@@ -291,73 +277,4 @@ unsafe fn inner_part2(input: &str) -> &'static str {
     }
 
     std::str::from_utf8_unchecked(PART2_OUTPUT.get_unchecked(..out_len))
-}
-
-mod bheap {
-    #[inline(always)]
-    pub unsafe fn pop<T: Copy + Ord>(heap: &mut [T]) {
-        if heap.len() > 1 {
-            // len = len - 1
-            //
-            // sift_down_to_bottom(0)
-
-            let start = 0;
-            let end = heap.len() - 1;
-
-            let hole = *heap.get_unchecked(heap.len() - 1);
-            let mut hole_pos = start;
-            let mut child = 2 * hole_pos + 1;
-
-            while child <= end.saturating_sub(2) {
-                child += (*heap.get_unchecked(child) >= *heap.get_unchecked(child + 1)) as usize;
-
-                *heap.get_unchecked_mut(hole_pos) = *heap.get_unchecked(child);
-                hole_pos = child;
-
-                child = 2 * hole_pos + 1;
-            }
-
-            if child == end - 1 {
-                *heap.get_unchecked_mut(hole_pos) = *heap.get_unchecked(child);
-                hole_pos = child;
-            }
-
-            // sift_up(start, hole_pos)
-            while hole_pos > start {
-                let parent = (hole_pos - 1) / 2;
-
-                if hole >= *heap.get_unchecked(parent) {
-                    break;
-                }
-
-                *heap.get_unchecked_mut(hole_pos) = *heap.get_unchecked(parent);
-                hole_pos = parent;
-            }
-
-            *heap.get_unchecked_mut(hole_pos) = hole;
-        }
-    }
-
-    #[inline(always)]
-    pub unsafe fn push<T: Copy + Ord>(heap: &mut [T]) {
-        // sift_up(0, heap.len() - 1)
-        let start = 0;
-        let pos = heap.len() - 1;
-
-        let hole = *heap.get_unchecked(pos);
-        let mut hole_pos = pos;
-
-        while hole_pos > start {
-            let parent = (hole_pos - 1) / 2;
-
-            if hole >= *heap.get_unchecked(parent) {
-                break;
-            }
-
-            *heap.get_unchecked_mut(hole_pos) = *heap.get_unchecked(parent);
-            hole_pos = parent;
-        }
-
-        *heap.get_unchecked_mut(hole_pos) = hole;
-    }
 }
