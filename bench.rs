@@ -14,7 +14,7 @@ macro_rules! bench {
     };
 }
 
-bench!(day16);
+bench!(day23);
 
 criterion_group!(benches, bench);
 criterion_main!(benches);
