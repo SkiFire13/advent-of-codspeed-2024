@@ -141,7 +141,21 @@ unsafe fn inner_part2(input: &str) -> &'static str {
 
     const MAX: usize = 3450;
     let mut levels_list = [MaybeUninit::uninit(); MAX];
-    let mut levels = [0; 73 * 73];
+    let mut levels = const {
+        let mut levels = [0; 73 * 73];
+        let mut i = 0;
+        while i < 73 {
+            let a = [(0, i), (i, 0), (72, i), (i, 72)];
+            let mut j = 0;
+            while j < 4 {
+                let (x, y) = a[j];
+                levels[73 * y + x] = u16::MAX;
+                j += 1;
+            }
+            i += 1;
+        }
+        levels
+    };
 
     let mut ptr = input.as_ptr();
     let end_ptr = ptr.add(input.len());
@@ -177,24 +191,6 @@ unsafe fn inner_part2(input: &str) -> &'static str {
         }
     }
 
-    let mut seen = const {
-        let mut seen = [0u64; (73 * 73 + 63) / 64];
-        let mut i = 0;
-        while i < 73 {
-            let a = [(0, i), (i, 0), (72, i), (i, 72)];
-            let mut j = 0;
-            while j < 4 {
-                let (x, y) = a[j];
-                let idx = 73 * y + x;
-                seen[idx / 64] |= 1 << (idx % 64);
-                j += 1;
-            }
-
-            i += 1;
-        }
-        seen
-    };
-
     const START: usize = 73 * (0 + 1) + (0 + 1);
     const END: usize = 73 * (70 + 1) + (70 + 1);
 
@@ -203,7 +199,7 @@ unsafe fn inner_part2(input: &str) -> &'static str {
 
     *stack[stack_len].as_mut_ptr() = START as u16;
     stack_len += 1;
-    *seen.get_unchecked_mut(START / 64) |= 1 << (START % 64);
+    *levels.get_unchecked_mut(START) = u16::MAX;
 
     let mut max = 0;
 
@@ -211,7 +207,7 @@ unsafe fn inner_part2(input: &str) -> &'static str {
         stack_len -= 1;
         let pos = *stack.get_unchecked(stack_len).as_ptr() as usize;
 
-        debug_assert!(*levels.get_unchecked(pos) <= max);
+        debug_assert!(*levels.get_unchecked(pos) == u16::MAX);
 
         if pos == END {
             break;
@@ -223,15 +219,14 @@ unsafe fn inner_part2(input: &str) -> &'static str {
         const DOWN: usize = 73;
         for dir in [LEFT, RIGHT, UP, DOWN] {
             let new_pos = pos.wrapping_add(dir);
-            let g = seen.get_unchecked_mut(new_pos / 64);
-            if *g & (1 << (new_pos % 64)) == 0 {
-                *g |= 1 << (new_pos % 64);
 
-                let level = *levels.get_unchecked(new_pos);
-                if level <= max {
+            let level = levels.get_unchecked_mut(new_pos);
+            if *level != u16::MAX {
+                if *level <= max {
                     *stack.get_unchecked_mut(stack_len).as_mut_ptr() = new_pos as u16;
                     stack_len += 1;
                 }
+                *level = u16::MAX;
             }
         }
 
@@ -239,7 +234,7 @@ unsafe fn inner_part2(input: &str) -> &'static str {
             loop {
                 max += 1;
                 let pos = *levels_list.get_unchecked(max as usize - 1).as_ptr() as usize;
-                if *seen.get_unchecked(pos / 64) & (1 << (pos % 64)) != 0 {
+                if *levels.get_unchecked(pos) == u16::MAX {
                     *stack[0].as_mut_ptr() = pos as u16;
                     stack_len = 1;
                     break;
