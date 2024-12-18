@@ -139,35 +139,15 @@ unsafe fn inner_part1(input: &str) -> u64 {
 unsafe fn inner_part2(input: &str) -> &'static str {
     let input = input.as_bytes();
 
-    const LEFT_ROOT: usize = 73 * 1 + 0;
-    const RIGHT_ROOT: usize = 73 * 0 + 1;
-    const PARENT_MASK: u16 = 1 << 15;
-
-    let mut uf = const {
-        let mut uf = [0u16; 73 * 73];
-
-        uf[LEFT_ROOT] = u16::MAX >> 2;
-        uf[RIGHT_ROOT] = u16::MAX >> 3;
-
-        let mut i = 2;
-        while i < 73 {
-            uf[73 * i + 0] = LEFT_ROOT as u16 | PARENT_MASK;
-            uf[73 * 0 + i] = RIGHT_ROOT as u16 | PARENT_MASK;
-            i += 1;
-        }
-        let mut i = 1;
-        while i < 72 {
-            uf[73 * 72 + i] = LEFT_ROOT as u16 | PARENT_MASK;
-            uf[73 * i + 72] = RIGHT_ROOT as u16 | PARENT_MASK;
-            i += 1;
-        }
-
-        uf
-    };
+    const MAX: usize = 3450;
+    let mut levels_list = [MaybeUninit::uninit(); MAX];
+    let mut levels = [MAX as u16; 73 * 73];
 
     let mut ptr = input.as_ptr();
+    let end_ptr = ptr.add(input.len());
+    let mut n = 0;
 
-    let (x, y) = 'outer: loop {
+    loop {
         let mut x = (*ptr as usize) - (b'0' as usize);
         ptr = ptr.add(1);
         if *ptr != b',' {
@@ -186,33 +166,103 @@ unsafe fn inner_part2(input: &str) -> &'static str {
         ptr = ptr.add(1);
 
         let pos = 73 * (y + 1) + (x + 1);
-        let mut this_root = pos as u16;
-        *uf.get_unchecked_mut(this_root as usize) = 1;
-        for dir in [-73isize - 1, -73, -73 + 1, -1, 1, 73 - 1, 73, 73 + 1] {
-            let new_pos = pos.wrapping_add(dir as usize);
-            if *uf.get_unchecked(new_pos) != 0 {
-                let mut root = new_pos as u16;
-                while *uf.get_unchecked(root as usize) & PARENT_MASK != 0 {
-                    root = *uf.get_unchecked(root as usize) & !PARENT_MASK;
-                }
-                if root != this_root {
-                    if *uf.get_unchecked(root as usize) < *uf.get_unchecked(this_root as usize) {
-                        *uf.get_unchecked_mut(this_root as usize) +=
-                            *uf.get_unchecked(root as usize);
-                        *uf.get_unchecked_mut(root as usize) = this_root | PARENT_MASK;
-                    } else {
-                        *uf.get_unchecked_mut(root as usize) +=
-                            *uf.get_unchecked(this_root as usize);
-                        *uf.get_unchecked_mut(this_root as usize) = root | PARENT_MASK;
-                        this_root = root;
-                    }
-                    if *uf.get_unchecked(RIGHT_ROOT) == LEFT_ROOT as u16 | PARENT_MASK {
-                        break 'outer (x, y);
-                    }
+        *levels.get_unchecked_mut(pos) = n;
+        *levels_list.get_unchecked_mut(n as usize).as_mut_ptr() = pos as u16;
+
+        n += 1;
+        if ptr == end_ptr {
+            debug_assert_eq!(n, 3450);
+            break;
+        }
+    }
+
+    let mut seen = const {
+        let mut seen = [0u64; (73 * 73 + 63) / 64];
+        let mut i = 0;
+        while i < 73 {
+            let a = [(0, i), (i, 0), (72, i), (i, 72)];
+            let mut j = 0;
+            while j < 4 {
+                let (x, y) = a[j];
+                let idx = 73 * y + x;
+                seen[idx / 64] |= 1 << (idx % 64);
+                j += 1;
+            }
+
+            i += 1;
+        }
+        seen
+    };
+
+    const START: usize = 73 * (0 + 1) + (0 + 1);
+    const END: usize = 73 * (70 + 1) + (70 + 1);
+
+    let mut stack = [MaybeUninit::<u16>::uninit(); 1024];
+    let mut stack_len = 0;
+
+    *stack[stack_len].as_mut_ptr() = START as u16;
+    stack_len += 1;
+    *seen.get_unchecked_mut(START / 64) |= 1 << (START % 64);
+
+    let mut queue = [MaybeUninit::<u16>::uninit(); 1024];
+    let mut queue_len = 0;
+
+    let mut min = 3450;
+
+    loop {
+        stack_len -= 1;
+        let pos = *stack.get_unchecked(stack_len).as_ptr() as usize;
+
+        debug_assert!(*levels.get_unchecked(pos) >= min);
+
+        if pos == END {
+            break;
+        }
+
+        const LEFT: usize = -1isize as usize;
+        const RIGHT: usize = 1;
+        const UP: usize = -73isize as usize;
+        const DOWN: usize = 73;
+        for dir in [LEFT, RIGHT, UP, DOWN] {
+            let new_pos = pos.wrapping_add(dir);
+            let g = seen.get_unchecked_mut(new_pos / 64);
+            if *g & (1 << (new_pos % 64)) == 0 {
+                *g |= 1 << (new_pos % 64);
+
+                let level = *levels.get_unchecked(new_pos);
+                if level >= min {
+                    *stack.get_unchecked_mut(stack_len).as_mut_ptr() = new_pos as u16;
+                    stack_len += 1;
+                } else {
+                    *queue.get_unchecked_mut(queue_len).as_mut_ptr() = level;
+                    queue_len += 1;
+                    bheap::push(std::slice::from_raw_parts_mut(
+                        queue.as_mut_ptr().cast::<u16>(),
+                        queue_len,
+                    ));
                 }
             }
         }
-    };
+
+        if stack_len == 0 {
+            debug_assert!(queue_len > 0);
+            let level = *queue.get_unchecked(0).as_ptr();
+            bheap::pop(std::slice::from_raw_parts_mut(
+                queue.as_mut_ptr().cast::<u16>(),
+                queue_len,
+            ));
+            queue_len -= 1;
+
+            *stack[0].as_mut_ptr() = *levels_list.get_unchecked(level as usize).as_ptr();
+            stack_len = 1;
+
+            debug_assert!(level < min);
+            min = level;
+        }
+    }
+
+    let pos = *levels_list.get_unchecked(min as usize).as_ptr();
+    let (x, y) = ((pos % 73) - 1, (pos / 73) - 1);
 
     let mut out_len = 0;
 
@@ -240,4 +290,73 @@ unsafe fn inner_part2(input: &str) -> &'static str {
     }
 
     std::str::from_utf8_unchecked(PART2_OUTPUT.get_unchecked(..out_len))
+}
+
+mod bheap {
+    #[inline(always)]
+    pub unsafe fn pop<T: Copy + Ord>(heap: &mut [T]) {
+        if heap.len() > 1 {
+            // len = len - 1
+            //
+            // sift_down_to_bottom(0)
+
+            let start = 0;
+            let end = heap.len() - 1;
+
+            let hole = *heap.get_unchecked(heap.len() - 1);
+            let mut hole_pos = start;
+            let mut child = 2 * hole_pos + 1;
+
+            while child <= end.saturating_sub(2) {
+                child += (*heap.get_unchecked(child) <= *heap.get_unchecked(child + 1)) as usize;
+
+                *heap.get_unchecked_mut(hole_pos) = *heap.get_unchecked(child);
+                hole_pos = child;
+
+                child = 2 * hole_pos + 1;
+            }
+
+            if child == end - 1 {
+                *heap.get_unchecked_mut(hole_pos) = *heap.get_unchecked(child);
+                hole_pos = child;
+            }
+
+            // sift_up(start, hole_pos)
+            while hole_pos > start {
+                let parent = (hole_pos - 1) / 2;
+
+                if hole <= *heap.get_unchecked(parent) {
+                    break;
+                }
+
+                *heap.get_unchecked_mut(hole_pos) = *heap.get_unchecked(parent);
+                hole_pos = parent;
+            }
+
+            *heap.get_unchecked_mut(hole_pos) = hole;
+        }
+    }
+
+    #[inline(always)]
+    pub unsafe fn push<T: Copy + Ord>(heap: &mut [T]) {
+        // sift_up(0, heap.len() - 1)
+        let start = 0;
+        let pos = heap.len() - 1;
+
+        let hole = *heap.get_unchecked(pos);
+        let mut hole_pos = pos;
+
+        while hole_pos > start {
+            let parent = (hole_pos - 1) / 2;
+
+            if hole <= *heap.get_unchecked(parent) {
+                break;
+            }
+
+            *heap.get_unchecked_mut(hole_pos) = *heap.get_unchecked(parent);
+            hole_pos = parent;
+        }
+
+        *heap.get_unchecked_mut(hole_pos) = hole;
+    }
 }
