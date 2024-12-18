@@ -141,11 +141,11 @@ unsafe fn inner_part2(input: &str) -> &'static str {
 
     const MAX: usize = 3450;
     let mut levels_list = [MaybeUninit::uninit(); MAX];
-    let mut levels = [MAX as u16; 73 * 73];
+    let mut levels = [0; 73 * 73];
 
     let mut ptr = input.as_ptr();
     let end_ptr = ptr.add(input.len());
-    let mut n = 0;
+    let mut n = MAX as u16;
 
     loop {
         let mut x = (*ptr as usize) - (b'0' as usize);
@@ -167,11 +167,12 @@ unsafe fn inner_part2(input: &str) -> &'static str {
 
         let pos = 73 * (y + 1) + (x + 1);
         *levels.get_unchecked_mut(pos) = n;
-        *levels_list.get_unchecked_mut(n as usize).as_mut_ptr() = pos as u16;
+        *levels_list.get_unchecked_mut(n as usize - 1).as_mut_ptr() = pos as u16;
 
-        n += 1;
+        n -= 1;
+
         if ptr == end_ptr {
-            debug_assert_eq!(n, 3450);
+            debug_assert_eq!(n, 0);
             break;
         }
     }
@@ -207,13 +208,13 @@ unsafe fn inner_part2(input: &str) -> &'static str {
     let mut queue = [MaybeUninit::<u16>::uninit(); 2048];
     let mut queue_len = 0;
 
-    let mut min = 3450;
+    let mut max = 0;
 
     loop {
         stack_len -= 1;
         let pos = *stack.get_unchecked(stack_len).as_ptr() as usize;
 
-        debug_assert!(*levels.get_unchecked(pos) >= min);
+        debug_assert!(*levels.get_unchecked(pos) <= max);
 
         if pos == END {
             break;
@@ -230,7 +231,7 @@ unsafe fn inner_part2(input: &str) -> &'static str {
                 *g |= 1 << (new_pos % 64);
 
                 let level = *levels.get_unchecked(new_pos);
-                if level >= min {
+                if level <= max {
                     *stack.get_unchecked_mut(stack_len).as_mut_ptr() = new_pos as u16;
                     stack_len += 1;
                 } else {
@@ -253,15 +254,15 @@ unsafe fn inner_part2(input: &str) -> &'static str {
             ));
             queue_len -= 1;
 
-            *stack[0].as_mut_ptr() = *levels_list.get_unchecked(level as usize).as_ptr();
+            *stack[0].as_mut_ptr() = *levels_list.get_unchecked(level as usize - 1).as_ptr();
             stack_len = 1;
 
-            debug_assert!(level < min);
-            min = level;
+            debug_assert!(level > max);
+            max = level;
         }
     }
 
-    let pos = *levels_list.get_unchecked(min as usize).as_ptr();
+    let pos = *levels_list.get_unchecked(max as usize - 1).as_ptr();
     let (x, y) = ((pos % 73) - 1, (pos / 73) - 1);
 
     let mut out_len = 0;
@@ -308,7 +309,7 @@ mod bheap {
             let mut child = 2 * hole_pos + 1;
 
             while child <= end.saturating_sub(2) {
-                child += (*heap.get_unchecked(child) <= *heap.get_unchecked(child + 1)) as usize;
+                child += (*heap.get_unchecked(child) >= *heap.get_unchecked(child + 1)) as usize;
 
                 *heap.get_unchecked_mut(hole_pos) = *heap.get_unchecked(child);
                 hole_pos = child;
@@ -325,7 +326,7 @@ mod bheap {
             while hole_pos > start {
                 let parent = (hole_pos - 1) / 2;
 
-                if hole <= *heap.get_unchecked(parent) {
+                if hole >= *heap.get_unchecked(parent) {
                     break;
                 }
 
@@ -349,7 +350,7 @@ mod bheap {
         while hole_pos > start {
             let parent = (hole_pos - 1) / 2;
 
-            if hole <= *heap.get_unchecked(parent) {
+            if hole >= *heap.get_unchecked(parent) {
                 break;
             }
 
