@@ -197,14 +197,14 @@ unsafe fn inner_part2(input: &str) -> &'static str {
     const START: usize = 73 * (0 + 1) + (0 + 1);
     const END: usize = 73 * (70 + 1) + (70 + 1);
 
-    let mut stack = [MaybeUninit::<u16>::uninit(); 1024];
+    let mut stack = [MaybeUninit::<u16>::uninit(); 32];
     let mut stack_len = 0;
 
     *stack[stack_len].as_mut_ptr() = START as u16;
     stack_len += 1;
     *seen.get_unchecked_mut(START / 64) |= 1 << (START % 64);
 
-    let mut queue = [MaybeUninit::<u16>::uninit(); 1024];
+    let mut queue = [MaybeUninit::<u16>::uninit(); 2048];
     let mut queue_len = 0;
 
     let mut min = 3450;
