@@ -59,24 +59,14 @@ unsafe fn inner_part1(input: &str) -> &'static str {
     let xor1 = *ptr - b'0';
     ptr = ptr.add(6);
     let mut xor2_ptr = std::ptr::null();
-    let mut four_ptr = std::ptr::null();
     for _ in 0..3 {
         if *ptr == b'1' {
             xor2_ptr = ptr;
         }
-        if *ptr == b'4' {
-            four_ptr = ptr;
-        }
         ptr = ptr.add(4);
     }
 
-    let mut xor2 = 0;
-    let mut xor3 = 0;
-    if xor2_ptr < four_ptr {
-        xor2 = *xor2_ptr.add(2) - b'0';
-    } else {
-        xor3 = *xor2_ptr.add(2) - b'0';
-    }
+    let xor2 = *xor2_ptr.add(2) - b'0';
 
     let mut out_len = 0;
 
@@ -85,9 +75,8 @@ unsafe fn inner_part1(input: &str) -> &'static str {
         b ^= xor1;
 
         let c = a >> b;
-        b ^= xor2;
         b ^= c as u8;
-        b ^= xor3;
+        b ^= xor2;
         a >>= 3;
 
         *PART1_OUTPUT.get_unchecked_mut(out_len) = (b & 0b111) + b'0';
