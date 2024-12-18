@@ -41,18 +41,28 @@ static LUT2: [usize; 6] = {
 
 static mut PART1_OUTPUT: [u8; 2 * 9] = [b','; 2 * 9];
 
+#[inline(always)]
+fn parse8(n: u64) -> u64 {
+    use std::num::Wrapping as W;
+
+    let mut n = W(n);
+    let mask = W(0xFF | (0xFF << 32));
+    let mul1 = W(100 + (1000000 << 32));
+    let mul2 = W(1 + (10000 << 32));
+
+    n -= W(u64::from_ne_bytes([b'0'; 8]));
+    n = (n * W(10)) + (n >> 8);
+    n = (((n & mask) * mul1) + (((n >> 16) & mask) * mul2)) >> 32;
+
+    n.0 as u64
+}
+
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part1(input: &str) -> &'static str {
     let input = input.as_bytes();
 
-    let mut ptr = input.as_ptr().add(12);
-    let mut a = *ptr as u64 - b'0' as u64;
-    ptr = ptr.add(1);
-    while *ptr != b'\n' {
-        a = 10 * a + *ptr as u64 - b'0' as u64;
-        ptr = ptr.add(1);
-    }
+    let mut a = parse8(input.as_ptr().add(12).cast::<u64>().read_unaligned());
 
     let mut ptr = input.as_ptr().add(input.len()).sub(26);
     let xor1 = *ptr - b'0';
