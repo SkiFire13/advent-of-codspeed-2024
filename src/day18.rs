@@ -35,7 +35,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
     let input = input.as_bytes();
 
     let mut grid = const {
-        let mut grid = [0u64; (73 * 73 + 63) / 64];
+        let mut grid = [false; 73 * 73];
         let mut i = 0;
         while i < 73 {
             let a = [(0, i), (i, 0), (72, i), (i, 72)];
@@ -43,7 +43,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
             while j < 4 {
                 let (x, y) = a[j];
                 let idx = 73 * y + x;
-                grid[idx / 64] |= 1 << (idx % 64);
+                grid[idx] = true;
                 j += 1;
             }
 
@@ -74,7 +74,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
         ptr = ptr.add(1);
 
         let idx = 73 * (y + 1) + (x + 1);
-        *grid.get_unchecked_mut(idx / 64) |= 1 << (idx % 64);
+        *grid.get_unchecked_mut(idx) = true;
 
         n += 1;
         if n == 1024 {
@@ -92,7 +92,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
 
     *queue1[queue1_len].as_mut_ptr() = START;
     queue1_len += 1;
-    *grid.get_unchecked_mut(START / 64) |= 1 << (START % 64);
+    *grid.get_unchecked_mut(START) = true;
 
     let mut cost = 0;
 
@@ -113,9 +113,9 @@ unsafe fn inner_part1(input: &str) -> u64 {
                     const DOWN: usize = 73;
                     for dir in [LEFT, RIGHT, UP, DOWN] {
                         let new_pos = pos.wrapping_add(dir);
-                        let g = grid.get_unchecked_mut(new_pos / 64);
-                        if *g & (1 << (new_pos % 64)) == 0 {
-                            *g |= 1 << (new_pos % 64);
+                        let g = grid.get_unchecked_mut(new_pos);
+                        if !*g {
+                            *g = true;
                             *$queue2.get_unchecked_mut($queue2_len).as_mut_ptr() = new_pos;
                             $queue2_len += 1;
                         }
