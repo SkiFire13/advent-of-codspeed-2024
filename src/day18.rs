@@ -7,11 +7,11 @@
 #![feature(core_intrinsics)]
 #![feature(int_roundings)]
 
+use std::mem::MaybeUninit;
+
 // pub fn run(input: &str) -> i64 {
 //     part1(input) as i64
 // }
-
-use std::mem::MaybeUninit;
 
 pub fn run(input: &str) -> &'static str {
     part2(input)
