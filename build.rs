@@ -134,7 +134,7 @@ fn make_d17_lut(path: &Path) {
             offset = 6 * offset + o3 as usize;
             offset = 8 * offset + a3 as usize;
 
-            let mut new_a = 0;
+            let mut new_a = 1;
 
             'search: for _ in 0..1000 {
                 out.clear();
