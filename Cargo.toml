@@ -9,12 +9,15 @@ bench = false
 
 [profile.bench.build-override]
 opt-level = 3
+debug = true
 
 [profile.dev.build-override]
 opt-level = 3
+debug = true
 
 [profile.release.build-override]
 opt-level = 3
+debug = true
 
 
 [dependencies]

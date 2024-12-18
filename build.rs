@@ -96,7 +96,9 @@ fn make_d17_lut(path: &Path) {
         }
     }
 
-    let mut lut = vec![0u64; (4 * 4 * 4 * 4) * (8 * 8 * 8)];
+    // let mut f = std::io::BufWriter::new(File::create("manual.txt").unwrap());
+
+    let mut lut = vec![0u64; (5 * 5 * 5) * (8 * 8 * 8 * 8)];
 
     let mut out = Vec::new();
     let mut i = [usize::MAX; 4];
@@ -104,85 +106,68 @@ fn make_d17_lut(path: &Path) {
     let map1 = [0, 1, 4, 5];
     let map2 = [3, 9, 9, 5];
 
-    for c1 in 0..4 {
-        i[c1] = 0;
-        for c2 in 0..4 {
-            if c1 == c2 {
-                continue;
-            }
-            i[c2] = 1;
+    let ops = [0, 1, 4, 5];
+    let arg_lo = [3, 0, 0, 5];
+    let arg_hi = [4, 8, 8, 6];
 
-            for c3 in 0..4 {
-                if c1 == c3 || c2 == c3 {
-                    continue;
-                }
-                i[c3] = 2;
+    macro_rules! unnest {
+        ({$($block:tt)*}) => { $($block)* };
+        ([$($op:tt)*] $($rest:tt)+) => { $($op)* { unnest!($($rest)+); } };
+    }
 
-                for c4 in 0..4 {
-                    if c1 == c4 || c2 == c4 || c3 == c4 {
-                        continue;
+    unnest! {
+        [for x1 in 0..8]
+        [for o1 in 0..4]
+        [for o2 in 0..4]
+        [if o2 != o1]
+        [for o3 in 0..4]
+        [if o3 != o1 && o3 != o2]
+        [let o4 = o1 ^ o2 ^ o3;]
+        [if o4 == 0 || o4 == 3]
+        [for a1 in arg_lo[o1 as usize]..arg_hi[o1 as usize]]
+        [for a2 in arg_lo[o2 as usize]..arg_hi[o2 as usize]]
+        [for a3 in arg_lo[o3 as usize]..arg_hi[o3 as usize]]
+        [let a4 = arg_lo[o4 as usize];]
+        {
+            let [o1, o2, o3, o4] = [o1, o2, o3, o4].map(|o| ops[o as usize]);
+            let mut prog = [2, 4, 1, x1, 7, 5, o1, a1, o2, a2, o3, a3, o4, a4, 3, 0];
+
+            let mut offset = 0;
+            offset = 0 * offset + x1 as usize;
+            offset = 8 * offset + o1 as usize;
+            offset = 5 * offset + a1 as usize;
+            offset = 8 * offset + o2 as usize;
+            offset = 5 * offset + a2 as usize;
+            offset = 8 * offset + o3 as usize;
+            offset = 5 * offset + a3 as usize;
+
+            let mut new_a = 0;
+
+            'search: for _ in 0..1000 {
+                out.clear();
+                simulate([new_a, 0, 0], &prog, &mut out);
+
+                if prog.ends_with(&out) {
+                    if prog.len() == out.len() {
+                        lut[offset] = new_a;
+                        // f.write_fmt(format_args!("    lut[{offset}] = {new_a};\n")).unwrap();
+                        break 'search;
+                    } else {
+                        new_a <<= 3;
                     }
-
-                    i[c4] = 3;
-
-                    let mut prog = [2, 4, 1, 9, 7, 5, 9, 9, 9, 9, 9, 9, 9, 9, 3, 0];
-
-                    prog[6] = map1[c1];
-                    prog[7] = map2[c1];
-                    prog[8] = map1[c2];
-                    prog[9] = map2[c2];
-                    prog[10] = map1[c3];
-                    prog[11] = map2[c3];
-                    prog[12] = map1[c4];
-                    prog[13] = map2[c4];
-
-                    let idx1 = 3;
-                    let idx2 = 6 + 2 * i[1] + 1;
-                    let idx4 = 6 + 2 * i[2] + 1;
-
-                    let comb = 64 * c1 + 16 * c2 + 4 * c3 + c4;
-                    let mut off = (8 * 8 * 8) * comb;
-
-                    for xor1 in 0..8 {
-                        for xor2 in 0..8 {
-                            for four in 0..8 {
-                                let mut prog = prog;
-                                prog[idx1] = xor1;
-                                prog[idx2] = xor2;
-                                prog[idx4] = four;
-
-                                let mut new_a = 0;
-
-                                'search: for _ in 0..1000 {
-                                    out.clear();
-                                    simulate([new_a, 0, 0], &prog, &mut out);
-
-                                    if prog.ends_with(&out) {
-                                        if prog.len() == out.len() {
-                                            lut[off] = new_a;
-                                            break 'search;
-                                        } else {
-                                            new_a <<= 3;
-                                        }
-                                    } else {
-                                        while new_a & 0b111 == 0b111 {
-                                            new_a >>= 3;
-                                            if new_a == 0 {
-                                                break 'search;
-                                            }
-                                        }
-                                        new_a += 1;
-                                    }
-                                }
-
-                                off += 1;
-                            }
+                } else {
+                    while new_a & 0b111 == 0b111 {
+                        new_a >>= 3;
+                        if new_a == 0 {
+                            break 'search;
                         }
                     }
+                    new_a += 1;
                 }
             }
         }
     }
+    // f.flush().unwrap();
 
     let lut_u8 = unsafe { std::slice::from_raw_parts(lut.as_ptr().cast::<u8>(), 8 * lut.len()) };
     std::fs::write(path, lut_u8).unwrap();

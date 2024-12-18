@@ -26,18 +26,9 @@ pub fn part2(input: &str) -> u64 {
 }
 
 #[allow(long_running_const_eval)]
-static LUT: [u64; (4 * 4 * 4 * 4) * (8 * 8 * 8)] =
+static LUT: [u64; (5 * 5 * 5) * (8 * 8 * 8 * 8)] =
     unsafe { std::mem::transmute(*include_bytes!(concat!(env!("OUT_DIR"), "/d17p2.lut"))) };
-// [0; (4 * 4 * 4 * 4) * (8 * 8 * 8)];
-
-static LUT2: [usize; 6] = {
-    let mut lut = [0; 6];
-    lut[0] = 0;
-    lut[1] = 1;
-    lut[4] = 2;
-    lut[5] = 3;
-    lut
-};
+// [0; (5 * 5 * 5) * (8 * 8 * 8 * 8)];
 
 static mut PART1_OUTPUT: [u8; 2 * 9] = [b','; 2 * 9];
 
@@ -113,30 +104,17 @@ unsafe fn inner_part1(input: &str) -> &'static str {
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part2(input: &str) -> u64 {
-    let input = input.as_bytes();
-    let mut ptr = input.as_ptr().add(input.len()).sub(26);
-
-    let xor1 = *ptr - b'0';
-    ptr = ptr.add(6);
+    let ptr = input.as_bytes().as_ptr();
 
     let mut offset = 0;
-    let mut xor2 = std::ptr::null();
-    let mut four = std::ptr::null();
-    for _ in 0..4 {
-        offset = 4 * offset + *LUT2.get_unchecked(*ptr as usize - b'0' as usize);
-        if *ptr == b'1' {
-            xor2 = ptr;
-        }
-        if *ptr == b'4' {
-            four = ptr;
-        }
-        ptr = ptr.add(4);
-    }
 
-    let xor2 = *xor2.add(2) - b'0';
-    let four = *four.add(2) - b'0';
+    offset = 0 * offset + (*ptr.add(65) as usize - b'0' as usize);
+    offset = 8 * offset + (*ptr.add(71) as usize - b'0' as usize);
+    offset = 5 * offset + (*ptr.add(73) as usize - b'0' as usize);
+    offset = 8 * offset + (*ptr.add(75) as usize - b'0' as usize);
+    offset = 5 * offset + (*ptr.add(77) as usize - b'0' as usize);
+    offset = 8 * offset + (*ptr.add(79) as usize - b'0' as usize);
+    offset = 5 * offset + (*ptr.add(81) as usize - b'0' as usize);
 
-    *LUT.get_unchecked(
-        (8 * 8 * 8) * offset + 64 * xor1 as usize + 8 * xor2 as usize + four as usize,
-    )
+    *LUT.get_unchecked(offset)
 }
