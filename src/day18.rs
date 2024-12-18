@@ -137,6 +137,107 @@ unsafe fn inner_part1(input: &str) -> u64 {
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part2(input: &str) -> &'static str {
-    let mut out_len = 1;
-    std::str::from_utf8_unchecked(PART2_OUTPUT.get_unchecked(..out_len - 1))
+    let input = input.as_bytes();
+
+    const LEFT_ROOT: usize = 73 * 1 + 0;
+    const RIGHT_ROOT: usize = 73 * 0 + 1;
+    const PARENT_MASK: u16 = 1 << 15;
+
+    let mut uf = const {
+        let mut uf = [0u16; 73 * 73];
+
+        uf[LEFT_ROOT] = u16::MAX >> 2;
+        uf[RIGHT_ROOT] = u16::MAX >> 3;
+
+        let mut i = 2;
+        while i < 73 {
+            uf[73 * i + 0] = LEFT_ROOT as u16 | PARENT_MASK;
+            uf[73 * 0 + i] = RIGHT_ROOT as u16 | PARENT_MASK;
+            i += 1;
+        }
+        let mut i = 1;
+        while i < 72 {
+            uf[73 * 72 + i] = LEFT_ROOT as u16 | PARENT_MASK;
+            uf[73 * i + 72] = RIGHT_ROOT as u16 | PARENT_MASK;
+            i += 1;
+        }
+
+        uf
+    };
+
+    let mut ptr = input.as_ptr();
+
+    let (x, y) = 'outer: loop {
+        let mut x = (*ptr as usize) - (b'0' as usize);
+        ptr = ptr.add(1);
+        if *ptr != b',' {
+            x = 10 * x + (*ptr as usize) - (b'0' as usize);
+            ptr = ptr.add(1);
+        }
+
+        ptr = ptr.add(1);
+
+        let mut y = (*ptr as usize) - (b'0' as usize);
+        ptr = ptr.add(1);
+        if *ptr != b'\n' {
+            y = 10 * y + (*ptr as usize) - (b'0' as usize);
+            ptr = ptr.add(1);
+        }
+        ptr = ptr.add(1);
+
+        let pos = 73 * (y + 1) + (x + 1);
+        let mut this_root = pos as u16;
+        *uf.get_unchecked_mut(this_root as usize) = 1;
+        for dir in [-73isize - 1, -73, -73 + 1, -1, 1, 73 - 1, 73, 73 + 1] {
+            let new_pos = pos.wrapping_add(dir as usize);
+            if *uf.get_unchecked(new_pos) != 0 {
+                let mut root = new_pos as u16;
+                while *uf.get_unchecked(root as usize) & PARENT_MASK != 0 {
+                    root = *uf.get_unchecked(root as usize) & !PARENT_MASK;
+                }
+                if root != this_root {
+                    if *uf.get_unchecked(root as usize) < *uf.get_unchecked(this_root as usize) {
+                        *uf.get_unchecked_mut(this_root as usize) +=
+                            *uf.get_unchecked(root as usize);
+                        *uf.get_unchecked_mut(root as usize) = this_root | PARENT_MASK;
+                    } else {
+                        *uf.get_unchecked_mut(root as usize) +=
+                            *uf.get_unchecked(this_root as usize);
+                        *uf.get_unchecked_mut(this_root as usize) = root | PARENT_MASK;
+                        this_root = root;
+                    }
+                    if *uf.get_unchecked(RIGHT_ROOT) == LEFT_ROOT as u16 | PARENT_MASK {
+                        break 'outer (x, y);
+                    }
+                }
+            }
+        }
+    };
+
+    let mut out_len = 0;
+
+    if x >= 10 {
+        *PART2_OUTPUT.get_unchecked_mut(out_len) = b'0' + (x / 10) as u8;
+        out_len += 1;
+        *PART2_OUTPUT.get_unchecked_mut(out_len) = b'0' + (x % 10) as u8;
+        out_len += 1;
+    } else {
+        *PART2_OUTPUT.get_unchecked_mut(out_len) = b'0' + x as u8;
+        out_len += 1;
+    }
+
+    *PART2_OUTPUT.get_unchecked_mut(out_len) = b',';
+    out_len += 1;
+
+    if y >= 10 {
+        *PART2_OUTPUT.get_unchecked_mut(out_len) = b'0' + (y / 10) as u8;
+        out_len += 1;
+        *PART2_OUTPUT.get_unchecked_mut(out_len) = b'0' + (y % 10) as u8;
+        out_len += 1;
+    } else {
+        *PART2_OUTPUT.get_unchecked_mut(out_len) = b'0' + y as u8;
+        out_len += 1;
+    }
+
+    std::str::from_utf8_unchecked(PART2_OUTPUT.get_unchecked(..out_len))
 }
