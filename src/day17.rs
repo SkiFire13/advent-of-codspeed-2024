@@ -55,17 +55,18 @@ unsafe fn inner_part1(input: &str) -> &'static str {
 
     let mut a = parse8(input.as_ptr().add(12).cast::<u64>().read_unaligned());
 
-    let mut ptr = input.as_ptr().add(input.len()).sub(26);
+    let mut ptr = input.as_ptr().add(65);
+
     let xor1 = *ptr - b'0';
     ptr = ptr.add(6);
-    let mut xor2_ptr = std::ptr::null();
-    for _ in 0..3 {
+
+    let mut xor2_ptr = ptr;
+    for _ in 0..2 {
+        ptr = ptr.add(4);
         if *ptr == b'1' {
             xor2_ptr = ptr;
         }
-        ptr = ptr.add(4);
     }
-
     let xor2 = *xor2_ptr.add(2) - b'0';
 
     let mut out_len = 0;
