@@ -98,13 +98,9 @@ fn make_d17_lut(path: &Path) {
 
     // let mut f = std::io::BufWriter::new(File::create("manual.txt").unwrap());
 
-    let mut lut = vec![0u64; (5 * 5 * 5) * (8 * 8 * 8 * 8)];
+    let mut lut = vec![0u64; (6 * 6 * 6) * (8 * 8 * 8 * 8)];
 
     let mut out = Vec::new();
-    let mut i = [usize::MAX; 4];
-
-    let map1 = [0, 1, 4, 5];
-    let map2 = [3, 9, 9, 5];
 
     let ops = [0, 1, 4, 5];
     let arg_lo = [3, 0, 0, 5];
@@ -117,13 +113,10 @@ fn make_d17_lut(path: &Path) {
 
     unnest! {
         [for x1 in 0..8]
-        [for o1 in 0..4]
-        [for o2 in 0..4]
-        [if o2 != o1]
-        [for o3 in 0..4]
-        [if o3 != o1 && o3 != o2]
-        [let o4 = o1 ^ o2 ^ o3;]
-        [if o4 == 0 || o4 == 3]
+        [for o1 in 0..3]
+        [for o2 in 0..3] [if o2 != o1]
+        [for o3 in 0..4] [if o3 != o1 && o3 != o2]
+        [let o4 = o1 ^ o2 ^ o3;] [if o4 == 0 || o4 == 3]
         [for a1 in arg_lo[o1 as usize]..arg_hi[o1 as usize]]
         [for a2 in arg_lo[o2 as usize]..arg_hi[o2 as usize]]
         [for a3 in arg_lo[o3 as usize]..arg_hi[o3 as usize]]
@@ -134,12 +127,12 @@ fn make_d17_lut(path: &Path) {
 
             let mut offset = 0;
             offset = 0 * offset + x1 as usize;
-            offset = 8 * offset + o1 as usize;
-            offset = 5 * offset + a1 as usize;
-            offset = 8 * offset + o2 as usize;
-            offset = 5 * offset + a2 as usize;
-            offset = 8 * offset + o3 as usize;
-            offset = 5 * offset + a3 as usize;
+            offset = 6 * offset + o1 as usize;
+            offset = 8 * offset + a1 as usize;
+            offset = 6 * offset + o2 as usize;
+            offset = 8 * offset + a2 as usize;
+            offset = 6 * offset + o3 as usize;
+            offset = 8 * offset + a3 as usize;
 
             let mut new_a = 0;
 

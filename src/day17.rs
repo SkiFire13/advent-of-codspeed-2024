@@ -26,9 +26,9 @@ pub fn part2(input: &str) -> u64 {
 }
 
 #[allow(long_running_const_eval)]
-static LUT: [u64; (5 * 5 * 5) * (8 * 8 * 8 * 8)] =
+static LUT: [u64; (6 * 6 * 6) * (8 * 8 * 8 * 8)] =
     unsafe { std::mem::transmute(*include_bytes!(concat!(env!("OUT_DIR"), "/d17p2.lut"))) };
-// [0; (5 * 5 * 5) * (8 * 8 * 8 * 8)];
+// [0; (6 * 6 * 6) * (8 * 8 * 8 * 8)];
 
 static mut PART1_OUTPUT: [u8; 2 * 9] = [b','; 2 * 9];
 
@@ -109,12 +109,12 @@ unsafe fn inner_part2(input: &str) -> u64 {
     let mut offset = 0;
 
     offset = 0 * offset + (*ptr.add(65) as usize - b'0' as usize);
-    offset = 8 * offset + (*ptr.add(71) as usize - b'0' as usize);
-    offset = 5 * offset + (*ptr.add(73) as usize - b'0' as usize);
-    offset = 8 * offset + (*ptr.add(75) as usize - b'0' as usize);
-    offset = 5 * offset + (*ptr.add(77) as usize - b'0' as usize);
-    offset = 8 * offset + (*ptr.add(79) as usize - b'0' as usize);
-    offset = 5 * offset + (*ptr.add(81) as usize - b'0' as usize);
+    offset = 6 * offset + (*ptr.add(71) as usize - b'0' as usize);
+    offset = 8 * offset + (*ptr.add(73) as usize - b'0' as usize);
+    offset = 6 * offset + (*ptr.add(75) as usize - b'0' as usize);
+    offset = 8 * offset + (*ptr.add(77) as usize - b'0' as usize);
+    offset = 6 * offset + (*ptr.add(79) as usize - b'0' as usize);
+    offset = 8 * offset + (*ptr.add(81) as usize - b'0' as usize);
 
     *LUT.get_unchecked(offset)
 }
