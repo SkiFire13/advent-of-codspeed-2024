@@ -32,6 +32,6 @@ macro_rules! run {
 }
 
 fn main() {
-    bench(|| run!(day18, part1));
-    bench(|| run!(day18, part2));
+    bench(|| run!(day19, part1));
+    bench(|| run!(day19, part2));
 }
