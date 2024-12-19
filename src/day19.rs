@@ -7,6 +7,8 @@
 #![feature(core_intrinsics)]
 #![feature(int_roundings)]
 
+use std::arch::x86_64::*;
+
 pub fn run(input: &str) -> i64 {
     part1(input) as i64
 }
@@ -21,14 +23,120 @@ pub fn part2(input: &str) -> u64 {
     unsafe { inner_part2(input) }
 }
 
+static LUT: [usize; 128] = {
+    let mut lut = [usize::MAX; 128];
+    lut[b'r' as usize] = 0;
+    lut[b'g' as usize] = 1;
+    lut[b'b' as usize] = 2;
+    lut[b'u' as usize] = 3;
+    lut[b'w' as usize] = 4;
+    lut
+};
+
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part1(input: &str) -> u64 {
-    todo!()
+    let input = input.as_bytes();
+
+    let mut tries = [[u16::MAX; 6]; 1024];
+    let mut tries_len = 1;
+
+    let mut ptr = input.as_ptr();
+    loop {
+        let n = ptr.cast::<u64>().read_unaligned();
+        let mask = _pext_u64(n, u64::from_ne_bytes([0b00001000; 8]) | (1 << 62));
+        let len = mask.trailing_zeros();
+        let end = ptr.add(len as usize);
+
+        let mut trie = 0;
+        loop {
+            // let i = _pext_u64(*ptr as u64 + 13, 0b10010010) - 1;
+            let i = *LUT.get_unchecked(*ptr as usize);
+
+            let mut next = *tries.get_unchecked(trie).get_unchecked(i as usize);
+            if next == u16::MAX {
+                next = tries_len;
+                tries_len += 1;
+            }
+            *tries.get_unchecked_mut(trie).get_unchecked_mut(i as usize) = next;
+            trie = next as usize;
+
+            ptr = ptr.add(1);
+            if ptr == end {
+                break;
+            }
+        }
+
+        *tries.get_unchecked_mut(trie).get_unchecked_mut(5) = 0;
+
+        ptr = ptr.add(2);
+        if *ptr.sub(2) == b'\n' {
+            break;
+        }
+    }
+
+    let mut queue;
+    let mut to_see;
+
+    let mut count = 0;
+    let end = input.as_ptr().add(input.len());
+
+    loop {
+        queue = 1u64;
+        to_see = u64::MAX;
+
+        let base_ptr = ptr;
+        'outer: loop {
+            let pos = 63 - (queue & to_see).leading_zeros();
+            to_see &= !(1 << pos);
+
+            let mut ptr = base_ptr.add(pos as usize);
+            let mut trie = 0;
+
+            loop {
+                let i = *LUT.get_unchecked(*ptr as usize);
+
+                trie = *tries.get_unchecked(trie).get_unchecked(i) as usize;
+                if trie == u16::MAX as usize {
+                    break;
+                }
+
+                ptr = ptr.add(1);
+
+                if *tries.get_unchecked(trie).get_unchecked(5) == 0 {
+                    if *ptr == b'\n' {
+                        count += 1;
+                        break 'outer;
+                    }
+
+                    queue |= 1 << ptr.offset_from(base_ptr) as u64;
+                }
+
+                if *ptr == b'\n' {
+                    break;
+                }
+            }
+
+            if queue & to_see == 0 {
+                break;
+            }
+        }
+
+        while *ptr != b'\n' {
+            ptr = ptr.add(1);
+        }
+        ptr = ptr.add(1);
+
+        if ptr == end {
+            break;
+        }
+    }
+
+    count
 }
 
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part2(input: &str) -> u64 {
-    todo!()
+    0
 }
