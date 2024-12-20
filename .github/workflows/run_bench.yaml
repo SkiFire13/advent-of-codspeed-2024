@@ -21,6 +21,14 @@ jobs:
           cache-target: release
           bins: cargo-codspeed
           profile: minimal
+      
+      - name: Cache build artifacts
+        uses: actions/cache@v4
+        with:
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          path: |
+            **/target
+            ~/.cargo
 
       - name: Build the benches
         working-directory: .
