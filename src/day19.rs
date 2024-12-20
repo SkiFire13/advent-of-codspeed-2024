@@ -10,7 +10,7 @@
 use std::arch::x86_64::*;
 
 pub fn run(input: &str) -> i64 {
-    part1(input) as i64
+    part2(input) as i64
 }
 
 #[inline(always)]
@@ -138,5 +138,99 @@ unsafe fn inner_part1(input: &str) -> u64 {
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part2(input: &str) -> u64 {
-    0
+    let input = input.as_bytes();
+
+    let mut tries = [[u16::MAX; 6]; 1024];
+    let mut tries_len = 1;
+
+    let mut ptr = input.as_ptr();
+    loop {
+        let n = ptr.cast::<u64>().read_unaligned();
+        let mask = _pext_u64(n, u64::from_ne_bytes([0b00001000; 8]) | (1 << 62));
+        let len = mask.trailing_zeros();
+        let end = ptr.add(len as usize);
+
+        let mut trie = 0;
+        loop {
+            // let i = _pext_u64(*ptr as u64 + 13, 0b10010010) - 1;
+            let i = *LUT.get_unchecked(*ptr as usize);
+
+            let mut next = *tries.get_unchecked(trie).get_unchecked(i as usize);
+            if next == u16::MAX {
+                next = tries_len;
+                tries_len += 1;
+            }
+            *tries.get_unchecked_mut(trie).get_unchecked_mut(i as usize) = next;
+            trie = next as usize;
+
+            ptr = ptr.add(1);
+            if ptr == end {
+                break;
+            }
+        }
+
+        *tries.get_unchecked_mut(trie).get_unchecked_mut(5) = 0;
+
+        ptr = ptr.add(2);
+        if *ptr.sub(2) == b'\n' {
+            break;
+        }
+    }
+
+    let mut queue;
+
+    let mut count = 0;
+    let end = input.as_ptr().add(input.len());
+
+    loop {
+        queue = [0; 64];
+        queue[0] = 1;
+        let mut pos = 0;
+        let mut outer_ptr = ptr;
+        let base_ptr = ptr;
+
+        loop {
+            let n = *queue.get_unchecked(pos);
+
+            if n != 0 {
+                let mut ptr = outer_ptr;
+                let mut trie = 0;
+
+                loop {
+                    let i = *LUT.get_unchecked(*ptr as usize);
+
+                    trie = *tries.get_unchecked(trie).get_unchecked(i) as usize;
+                    if trie == u16::MAX as usize {
+                        break;
+                    }
+
+                    ptr = ptr.add(1);
+
+                    if *tries.get_unchecked(trie).get_unchecked(5) == 0 {
+                        *queue.get_unchecked_mut(ptr.offset_from(base_ptr) as usize) += n;
+                    }
+
+                    if *ptr == b'\n' {
+                        break;
+                    }
+                }
+            }
+
+            pos += 1;
+            outer_ptr = outer_ptr.add(1);
+
+            if *outer_ptr == b'\n' {
+                count += *queue.get_unchecked(pos);
+                break;
+            }
+        }
+
+        ptr = outer_ptr.add(1);
+
+        if ptr == end {
+            break;
+        }
+    }
+
+    count
 }
