@@ -88,7 +88,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
         to_see = u64::MAX;
 
         let base_ptr = ptr;
-        'outer: loop {
+        loop {
             let pos = 63 - (queue & to_see).leading_zeros();
             to_see &= !(1 << pos);
 
@@ -105,18 +105,17 @@ unsafe fn inner_part1(input: &str) -> u64 {
 
                 ptr = ptr.add(1);
 
-                if *tries_end.get_unchecked(trie) {
-                    if *ptr == b'\n' {
-                        count += 1;
-                        break 'outer;
-                    }
-
-                    queue |= 1 << ptr.offset_from(base_ptr) as u64;
-                }
+                let b = *tries_end.get_unchecked(trie) as u64;
+                queue |= b << ptr.offset_from(base_ptr) as u64;
 
                 if *ptr == b'\n' {
                     break;
                 }
+            }
+
+            if *ptr == b'\n' && *tries_end.get_unchecked(trie) {
+                count += 1;
+                break;
             }
 
             if queue & to_see == 0 {
