@@ -10,7 +10,7 @@
 use std::arch::x86_64::*;
 
 pub fn run(input: &str) -> i64 {
-    part2(input) as i64
+    part1(input) as i64
 }
 
 #[inline(always)]
@@ -38,7 +38,8 @@ static LUT: [usize; 128] = {
 unsafe fn inner_part1(input: &str) -> u64 {
     let input = input.as_bytes();
 
-    let mut tries = [[u16::MAX; 6]; 1024];
+    let mut tries = [[0u16; 5]; 1024];
+    let mut tries_end = [false; 1024];
     let mut tries_len = 1;
 
     let mut ptr = input.as_ptr();
@@ -46,6 +47,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
         let n = ptr.cast::<u64>().read_unaligned();
         let mask = _pext_u64(n, u64::from_ne_bytes([0b00001000; 8]) | (1 << 62));
         let len = mask.trailing_zeros();
+        std::hint::assert_unchecked(len > 0 && len <= 8);
         let end = ptr.add(len as usize);
 
         let mut trie = 0;
@@ -54,7 +56,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
             let i = *LUT.get_unchecked(*ptr as usize);
 
             let mut next = *tries.get_unchecked(trie).get_unchecked(i as usize);
-            if next == u16::MAX {
+            if next == 0 {
                 next = tries_len;
                 tries_len += 1;
             }
@@ -67,7 +69,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
             }
         }
 
-        *tries.get_unchecked_mut(trie).get_unchecked_mut(5) = 0;
+        *tries_end.get_unchecked_mut(trie) = true;
 
         ptr = ptr.add(2);
         if *ptr.sub(2) == b'\n' {
@@ -97,13 +99,13 @@ unsafe fn inner_part1(input: &str) -> u64 {
                 let i = *LUT.get_unchecked(*ptr as usize);
 
                 trie = *tries.get_unchecked(trie).get_unchecked(i) as usize;
-                if trie == u16::MAX as usize {
+                if trie == 0 {
                     break;
                 }
 
                 ptr = ptr.add(1);
 
-                if *tries.get_unchecked(trie).get_unchecked(5) == 0 {
+                if *tries_end.get_unchecked(trie) {
                     if *ptr == b'\n' {
                         count += 1;
                         break 'outer;
