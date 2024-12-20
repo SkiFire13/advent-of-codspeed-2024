@@ -142,7 +142,8 @@ unsafe fn inner_part1(input: &str) -> u64 {
 unsafe fn inner_part2(input: &str) -> u64 {
     let input = input.as_bytes();
 
-    let mut tries = [[u16::MAX; 6]; 1024];
+    let mut tries = [[0u16; 5]; 1024];
+    let mut tries_end = [false; 1024];
     let mut tries_len = 1;
 
     let mut ptr = input.as_ptr();
@@ -158,7 +159,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
             let i = *LUT.get_unchecked(*ptr as usize);
 
             let mut next = *tries.get_unchecked(trie).get_unchecked(i as usize);
-            if next == u16::MAX {
+            if next == 0 {
                 next = tries_len;
                 tries_len += 1;
             }
@@ -171,7 +172,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
             }
         }
 
-        *tries.get_unchecked_mut(trie).get_unchecked_mut(5) = 0;
+        *tries_end.get_unchecked_mut(trie) = true;
 
         ptr = ptr.add(2);
         if *ptr.sub(2) == b'\n' {
@@ -202,13 +203,13 @@ unsafe fn inner_part2(input: &str) -> u64 {
                     let i = *LUT.get_unchecked(*ptr as usize);
 
                     trie = *tries.get_unchecked(trie).get_unchecked(i) as usize;
-                    if trie == u16::MAX as usize {
+                    if trie == 0 {
                         break;
                     }
 
                     ptr = ptr.add(1);
 
-                    if *tries.get_unchecked(trie).get_unchecked(5) == 0 {
+                    if *tries_end.get_unchecked(trie) {
                         *queue.get_unchecked_mut(ptr.offset_from(base_ptr) as usize) += n;
                     }
 
