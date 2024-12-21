@@ -278,6 +278,8 @@ fn make_d21_lut(n: usize, path: &Path) {
 
     let mut lut = [0; 1 << 12];
 
+    // let mut s = String::new();
+
     for &d2 in &P9[..10] {
         for &d1 in &P9[..10] {
             for &d0 in &P9[..10] {
@@ -298,9 +300,13 @@ fn make_d21_lut(n: usize, path: &Path) {
                 }
 
                 lut[idx] = sum * cost;
+
+                // s += &format!("lut[{idx}] = {}\n", sum * cost);
             }
         }
     }
+
+    // std::fs::write(path.file_name().unwrap(), s).unwrap();
 
     let lut_u8 = unsafe { std::slice::from_raw_parts(lut.as_ptr().cast::<u8>(), 8 * lut.len()) };
     std::fs::write(path, lut_u8).unwrap();
