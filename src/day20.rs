@@ -11,7 +11,7 @@ use std::mem::MaybeUninit;
 use std::simd::prelude::*;
 
 pub fn run(input: &str) -> i64 {
-    part1(input) as i64
+    part2(input) as i64
 }
 
 #[inline(always)]
@@ -113,9 +113,29 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
     let (s, e) = find_start_end(input);
 
+    #[inline(always)]
+    unsafe fn next(
+        input: &[u8],
+        prev: usize,
+        cx: usize,
+        cy: usize,
+        curr: usize,
+    ) -> (usize, usize, usize) {
+        let (mut nx, mut ny, mut nc) = (cx - 1, cy, curr.wrapping_add(LEFT));
+        for (dx, dy, d) in [(1, 0, RIGHT), (0, -1, UP), (0, 1, DOWN)] {
+            let cand = curr.wrapping_add(d);
+            if *input.get_unchecked(cand) != b'#' && cand != prev {
+                nx = cx.wrapping_add_signed(dx);
+                ny = cy.wrapping_add_signed(dy);
+                nc = cand;
+            }
+        }
+        (nx, ny, nc)
+    }
+
     let mut count = 0;
     let mut prev = 0;
-    let mut curr = s;
+    let (mut cx, mut cy, mut curr) = (s % 142, s / 142, s);
     let mut cost = 0;
 
     let mut queue = [MaybeUninit::uninit(); 128];
@@ -123,28 +143,23 @@ unsafe fn inner_part2(input: &str) -> u64 {
     let mut queue_tail = 0;
 
     for _ in 0..100 {
-        *queue.get_unchecked_mut(queue_head).as_mut_ptr() = (curr, cost);
+        *queue.get_unchecked_mut(queue_head).as_mut_ptr() = (cx, cy, cost);
         queue_head += 1;
 
-        let next = next(input, prev, curr);
-        prev = curr;
-        curr = next;
+        (prev, (cx, cy, curr)) = (curr, next(input, prev, cx, cy, curr));
         cost += 1;
     }
 
     for i in 2..=20 {
-        *queue.get_unchecked_mut(queue_head).as_mut_ptr() = (curr, cost);
+        *queue.get_unchecked_mut(queue_head).as_mut_ptr() = (cx, cy, cost);
         queue_head += 1;
 
-        let next = next(input, prev, curr);
-        prev = curr;
-        curr = next;
+        (prev, (cx, cy, curr)) = (curr, next(input, prev, cx, cy, curr));
         cost += 1;
 
         let (cx, cy) = (curr % 142, curr / 142);
         for j in queue_tail..queue_tail + i {
-            let (pos, pcost) = *queue.get_unchecked(j & 127).as_ptr();
-            let (px, py) = (pos % 142, pos / 142);
+            let (px, py, pcost) = *queue.get_unchecked(j & 127).as_ptr();
             if pcost + cx.abs_diff(px) + cy.abs_diff(py) + 100 <= cost {
                 count += 1;
             }
@@ -171,25 +186,21 @@ unsafe fn inner_part2(input: &str) -> u64 {
     }
 
     loop {
-        *queue.get_unchecked_mut(queue_head & 127).as_mut_ptr() = (curr, cost);
+        *queue.get_unchecked_mut(queue_head & 127).as_mut_ptr() = (cx, cy, cost);
         queue_head += 1;
         debug_assert_eq!(queue_head - queue_tail, 120);
 
-        let next = next(input, prev, curr);
-        prev = curr;
-        curr = next;
+        (prev, (cx, cy, curr)) = (curr, next(input, prev, cx, cy, curr));
         cost += 1;
 
         // TODO: Store (ox << 16) | oy in queue?
-        let (old, _) = *queue.get_unchecked(queue_tail & 127).as_ptr();
+        let (ox, oy, _) = *queue.get_unchecked(queue_tail & 127).as_ptr();
         queue_tail += 1;
-        let (ox, oy) = (old % 142, old / 142);
         let (mut ow, mut oz) = xy_to_wz!(ox, oy);
 
         let (cx, cy) = (curr % 142, curr / 142);
         for j in queue_tail..queue_tail + 19 {
-            let (pos, pcost) = *queue.get_unchecked(j & 127).as_ptr();
-            let (px, py) = (pos % 142, pos / 142);
+            let (px, py, pcost) = *queue.get_unchecked(j & 127).as_ptr();
             if pcost + cx.abs_diff(px) + cy.abs_diff(py) + 100 <= cost {
                 count += 1;
             }
@@ -249,7 +260,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
                 }
             }
         }
-        *node = MASK | old as u16;
+        *node = MASK | (142 * oy + ox) as u16;
 
         #[cfg(debug_assertions)]
         if queue_tail >= 2 {
