@@ -15,6 +15,11 @@ fn main() {
     // make_d11_lut(75, 8, &lutd11p2);
     let lutd17p2 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d17p2.lut");
     make_d17_lut(&lutd17p2);
+
+    let lutd21p1 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d21p1.lut");
+    make_d21_lut(2, &lutd21p1);
+    let lutd21p2 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d21p2.lut");
+    make_d21_lut(25, &lutd21p2);
 }
 
 #[allow(unused)]
@@ -161,6 +166,141 @@ fn make_d17_lut(path: &Path) {
         }
     }
     // f.flush().unwrap();
+
+    let lut_u8 = unsafe { std::slice::from_raw_parts(lut.as_ptr().cast::<u8>(), 8 * lut.len()) };
+    std::fs::write(path, lut_u8).unwrap();
+}
+
+#[allow(unused)]
+fn make_d21_lut(n: usize, path: &Path) {
+    fn mov_pad(pad: usize, act: usize) -> Option<(usize, Option<usize>)> {
+        let dpad = match act {
+            1 => -4isize as usize,
+            2 => return Some((pad, Some(pad))),
+            4 => -1isize as usize,
+            5 => 4isize as usize,
+            6 => 1isize as usize,
+            _ => unreachable!(),
+        };
+
+        let res = pad.wrapping_add(dpad);
+        if res == 0 || res % 4 == 3 || res > 6 {
+            return None;
+        }
+        Some((res, None))
+    }
+
+    fn mov_pad9(pad: usize, act: usize) -> Option<(usize, Option<usize>)> {
+        let dpad = match act {
+            1 => -4isize as usize,
+            2 => return Some((pad, Some(pad))),
+            4 => -1isize as usize,
+            5 => 4isize as usize,
+            6 => 1isize as usize,
+            _ => unreachable!(),
+        };
+
+        let res = pad.wrapping_add(dpad);
+        if res == 12 || res % 4 == 3 || res > 15 {
+            return None;
+        }
+        Some((res, None))
+    }
+
+    const P2: [usize; 5] = [1, 2, 4, 5, 6];
+    const P9: [usize; 11] = [0, 1, 2, 4, 5, 6, 8, 9, 10, 13, 14];
+    const P2_SIZE: usize = 7;
+    const P9_SIZE: usize = 15;
+
+    fn pad_map<const SIZE: usize, const SIZE2: usize>(
+        pads: &[usize],
+        mov: impl Fn(usize, usize) -> Option<(usize, Option<usize>)>,
+        distances: &[u64; P2_SIZE * P2_SIZE],
+    ) -> [u64; SIZE2] {
+        let mut map = [0; SIZE2];
+        for &start in pads {
+            for &end in pads {
+                use std::cmp::Reverse;
+                use std::collections::BinaryHeap;
+                let mut queue = BinaryHeap::from([(Reverse(0), start, 2)]);
+                let mut min = u64::MAX;
+                while let Some((Reverse(pressed), p2, p1)) = queue.pop() {
+                    if pressed >= min {
+                        map[SIZE * start + end] = min;
+                        break;
+                    }
+                    for p2act in P2 {
+                        let pressed = pressed + distances[P2_SIZE * p1 + p2act];
+
+                        let Some((p2, final_act)) = mov(p2, p2act) else {
+                            continue;
+                        };
+                        let Some(final_act) = final_act else {
+                            queue.push((Reverse(pressed), p2, p2act));
+                            continue;
+                        };
+                        if final_act == end {
+                            min = min.min(pressed);
+                        }
+                    }
+                }
+            }
+        }
+        map
+    }
+
+    fn pad9_to_byte(pad9: usize) -> u8 {
+        match pad9 {
+            0 => b'7',
+            1 => b'8',
+            2 => b'9',
+
+            4 => b'4',
+            5 => b'5',
+            6 => b'6',
+
+            8 => b'1',
+            9 => b'2',
+            10 => b'3',
+
+            13 => b'0',
+            14 => b'A',
+
+            _ => unreachable!(),
+        }
+    }
+
+    let mut map = [1; P2_SIZE * P2_SIZE];
+    for i in 0..n {
+        map = pad_map::<P2_SIZE, { P2_SIZE * P2_SIZE }>(&P2, mov_pad, &map);
+    }
+    let map = pad_map::<P9_SIZE, { P9_SIZE * P9_SIZE }>(&P9, mov_pad9, &map);
+
+    let mut lut = [0; 1 << 12];
+
+    for &d2 in &P9[..10] {
+        for &d1 in &P9[..10] {
+            for &d0 in &P9[..10] {
+                let bs = [d0, d1, d2].map(pad9_to_byte);
+
+                let key = u32::from_ne_bytes([bs[0], bs[1], bs[2], b'A']);
+                let mask = u32::from_ne_bytes([0b1111, 0b1111, 0b1111, 0]);
+                let idx = unsafe { std::arch::x86_64::_pext_u32(key, mask) } as usize;
+
+                let mut sum = 0;
+                for b in bs {
+                    sum = 10 * sum + (b - b'0') as u64;
+                }
+
+                let mut cost = 0;
+                for (s, e) in [(14, d0), (d0, d1), (d1, d2), (d2, 14)] {
+                    cost += map[P9_SIZE * s + e];
+                }
+
+                lut[idx] = sum * cost;
+            }
+        }
+    }
 
     let lut_u8 = unsafe { std::slice::from_raw_parts(lut.as_ptr().cast::<u8>(), 8 * lut.len()) };
     std::fs::write(path, lut_u8).unwrap();
