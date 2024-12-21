@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
 fn bench<D: std::fmt::Display>(mut f: impl FnMut() -> D) {
-    let n = if cfg!(debug_assertions) { 1 } else { 1000 };
+    let n = if cfg!(debug_assertions) { 1 } else { 100 };
     let now = std::time::Instant::now();
     for _ in 1..n {
         f();
