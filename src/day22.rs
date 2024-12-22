@@ -22,10 +22,11 @@ pub fn part1(input: &str) -> u64 {
 #[inline(always)]
 pub fn part2(input: &str) -> u64 {
     unsafe { inner_part2(input) }
+    // super::day22par::part2(input)
 }
 
 #[inline(always)]
-fn parse8(n: u64) -> u32 {
+pub(crate) fn parse8(n: u64) -> u32 {
     use std::num::Wrapping as W;
 
     let mut n = W(n);
@@ -48,15 +49,16 @@ macro_rules! parse {
         parse8(n)
     }};
 }
+pub(crate) use parse;
 
-const M: u32 = 16777216 - 1;
+pub(crate) const M: u32 = 16777216 - 1;
 
 #[inline(always)]
-fn next(mut n: u32) -> u32 {
+pub(crate) fn next(mut n: u32) -> u32 {
     n ^= n << 6;
     n ^= (n & M) >> 5;
     n ^= n << 11;
-    n & M
+    n
 }
 
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
@@ -106,6 +108,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
     sum.reduce_sum() + last as u64
 }
 
+#[allow(unused)]
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part2(input: &str) -> u64 {
@@ -121,11 +124,11 @@ unsafe fn inner_part2(input: &str) -> u64 {
             let mut seen = [0u64; (19 * 19 * 19 * 19 + 63) / 64];
 
             let b1 = fastdiv::fastmod_u32_10(n);
-            n = next(n);
+            n = next(n) & M;
             let b2 = fastdiv::fastmod_u32_10(n);
-            n = next(n);
+            n = next(n) & M;
             let b3 = fastdiv::fastmod_u32_10(n);
-            n = next(n);
+            n = next(n) & M;
             let mut b4 = fastdiv::fastmod_u32_10(n);
 
             let mut d1 = 9 + b1 - b2;
@@ -133,7 +136,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
             let mut d3 = 9 + b3 - b4;
 
             for _ in 3..2000 {
-                n = next(n);
+                n = next(n) & M;
                 let b5 = fastdiv::fastmod_u32_10(n);
 
                 let d4 = 9 + b4 - b5;
