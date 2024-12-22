@@ -308,6 +308,10 @@ fn make_d21_lut(n: usize, path: &Path) {
 
     // std::fs::write(path.file_name().unwrap(), s).unwrap();
 
+    let lut = (0..1 << 24)
+        .map(|i| lut[i >> 12] + lut[i & ((1 << 12) - 1)])
+        .collect::<Vec<_>>();
+
     let lut_u8 = unsafe { std::slice::from_raw_parts(lut.as_ptr().cast::<u8>(), 8 * lut.len()) };
     std::fs::write(path, lut_u8).unwrap();
 }
