@@ -17,9 +17,9 @@ fn main() {
     make_d17_lut(&lutd17p2);
 
     let lutd21p1 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d21p1.lut");
-    make_d21_lut(2, &lutd21p1);
+    make_d21_lut::<u32>(2, &lutd21p1);
     let lutd21p2 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d21p2.lut");
-    make_d21_lut(25, &lutd21p2);
+    make_d21_lut::<u64>(25, &lutd21p2);
 }
 
 #[allow(unused)]
@@ -172,7 +172,7 @@ fn make_d17_lut(path: &Path) {
 }
 
 #[allow(unused)]
-fn make_d21_lut(n: usize, path: &Path) {
+fn make_d21_lut<T: TryFrom<u64>>(n: usize, path: &Path) {
     fn mov_pad(pad: usize, act: usize) -> Option<(usize, Option<usize>)> {
         let dpad = match act {
             1 => -4isize as usize,
@@ -308,10 +308,29 @@ fn make_d21_lut(n: usize, path: &Path) {
 
     // std::fs::write(path.file_name().unwrap(), s).unwrap();
 
+    let mut lut2 = vec![0; 10 * (1 << 16)];
+    for b1 in 0..9 {
+        for b2 in 0..9 {
+            for b3 in 0..9 {
+                let key_old = u32::from_ne_bytes([b1, b2, b3, 0]);
+                let mask = u32::from_ne_bytes([0b1111, 0b1111, 0b1111, 0]);
+                let idx_old = unsafe { std::arch::x86_64::_pext_u32(key_old, mask) } as usize;
+
+                let key_new = u32::from_ne_bytes([b1 + b'0', b2 + b'0', b3 + b'0', b'A']) as usize;
+                let idx_new = key_new - (b'A' as usize * (1 << 24) + b'0' as usize * (1 << 16));
+                lut2[idx_new] = lut[idx_old];
+            }
+        }
+    }
+
     let lut = (0..1 << 24)
         .map(|i| lut[i >> 12] + lut[i & ((1 << 12) - 1)])
+        .chain(lut2)
+        .map(|n| T::try_from(n).unwrap_or_else(|_| unreachable!()))
         .collect::<Vec<_>>();
 
-    let lut_u8 = unsafe { std::slice::from_raw_parts(lut.as_ptr().cast::<u8>(), 8 * lut.len()) };
+    let size = lut.len() * std::mem::size_of::<T>();
+
+    let lut_u8 = unsafe { std::slice::from_raw_parts(lut.as_ptr().cast::<u8>(), size) };
     std::fs::write(path, lut_u8).unwrap();
 }
