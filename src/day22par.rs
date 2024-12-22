@@ -30,7 +30,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
     let input = input.as_bytes();
     let mut ptr = input.as_ptr();
 
-    const COUNTS_LEN: usize = (19usize * 19 * 19 * 19).next_multiple_of(64);
+    const COUNTS_LEN: usize = (20usize * 20 * 20 * 20).next_multiple_of(64);
     static mut COUNTS: [u16; 128 * COUNTS_LEN] = [0; 128 * COUNTS_LEN];
 
     let cores = std::thread::available_parallelism().unwrap().get();
@@ -45,7 +45,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
     macro_rules! handle {
         ($n:expr, $count:ident) => {{
             let mut n = $n;
-            let mut seen = [0u64; (19 * 19 * 19 * 19 + 63) / 64];
+            let mut seen = [0u64; COUNTS_LEN / 64];
 
             let b1 = fastdiv::fastmod_u32_10(n);
             n = next(n) & M;
@@ -65,7 +65,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
                 let d4 = 9 + b4 - b5;
 
-                let idx = (d1 + 19 * (d2 + 19 * (d3 + 19 * d4))) as usize;
+                let idx = (d1 + 20 * (d2 + 20 * (d3 + 20 * d4))) as usize;
                 let s = seen.get_unchecked_mut(idx / 64);
                 if *s & (1 << (idx % 64)) == 0 {
                     *s |= 1 << (idx % 64);
