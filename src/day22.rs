@@ -119,9 +119,8 @@ unsafe fn inner_part2(input: &str) -> u64 {
     let mut counts = [0u16; COUNTS_LEN];
 
     macro_rules! handle {
-        ($n:expr) => {{
+        ($n:expr, $i:expr, $seen:ident) => {{
             let mut n = $n;
-            let mut seen = [0u64; COUNTS_LEN / 64];
 
             let b1 = fastdiv::fastmod_u32_10(n);
             n = next(n) & M;
@@ -142,9 +141,9 @@ unsafe fn inner_part2(input: &str) -> u64 {
                 let d4 = 9 + b4 - b5;
 
                 let idx = (d1 + 20 * (d2 + 20 * (d3 + 20 * d4))) as usize;
-                let s = seen.get_unchecked_mut(idx / 64);
-                if *s & (1 << (idx % 64)) == 0 {
-                    *s |= 1 << (idx % 64);
+                let s = $seen.get_unchecked_mut(idx);
+                if *s != $i {
+                    *s = $i;
                     *counts.get_unchecked_mut(idx) += b5 as u16;
                 }
 
@@ -153,9 +152,16 @@ unsafe fn inner_part2(input: &str) -> u64 {
         }};
     }
 
+    let mut seen = [0u8; COUNTS_LEN];
+    let mut i = 1;
     for _ in 0..1600 {
         let n = parse!(ptr);
-        handle!(n);
+        handle!(n, i, seen);
+        i = i.wrapping_add(1);
+        if i == 0 {
+            i = 1;
+            seen = [0u8; COUNTS_LEN];
+        }
     }
 
     {
@@ -167,7 +173,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
             .read_unaligned();
         let n = (n & 0x0F0F0F0F0F0F0F0F) & (u64::MAX << (8 * (8 - len)));
         let n = parse8(n);
-        handle!(n);
+        handle!(n, 1, seen);
     }
 
     let mut max = u16x16::splat(0);
