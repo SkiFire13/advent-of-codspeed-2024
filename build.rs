@@ -309,15 +309,16 @@ fn make_d21_lut<T: TryFrom<u64>>(n: usize, path: &Path) {
     // std::fs::write(path.file_name().unwrap(), s).unwrap();
 
     let mut lut2 = vec![0; 10 * (1 << 16)];
-    for b1 in 0..9 {
-        for b2 in 0..9 {
-            for b3 in 0..9 {
-                let key_old = u32::from_ne_bytes([b1, b2, b3, 0]);
-                let mask = u32::from_ne_bytes([0b1111, 0b1111, 0b1111, 0]);
-                let idx_old = unsafe { std::arch::x86_64::_pext_u32(key_old, mask) } as usize;
+    for b1 in 0..10 {
+        for b2 in 0..10 {
+            for b3 in 0..10 {
+                let key = u32::from_ne_bytes([b1 + b'0', b2 + b'0', b3 + b'0', b'A']);
 
-                let key_new = u32::from_ne_bytes([b1 + b'0', b2 + b'0', b3 + b'0', b'A']) as usize;
-                let idx_new = key_new - (b'A' as usize * (1 << 24) + b'0' as usize * (1 << 16));
+                let mask = u32::from_ne_bytes([0b1111, 0b1111, 0b1111, 0]);
+                let idx_old = unsafe { std::arch::x86_64::_pext_u32(key, mask) } as usize;
+
+                let idx_new =
+                    key as usize - (b'A' as usize * (1 << 24) + b'0' as usize * (1 << 16));
                 lut2[idx_new] = lut[idx_old];
             }
         }
