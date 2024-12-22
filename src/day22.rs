@@ -67,13 +67,13 @@ unsafe fn inner_part1(input: &str) -> u64 {
         // dbg!(n0, n1, n2, n3, n4, n5, n6, n7);
 
         let mut n = u32x8::from_array([n0, n1, n2, n3, n4, n5, n6, n7]);
+        let m = u32x8::splat(16777216 - 1);
         for _ in 0..2000 {
-            let m = u32x8::splat(16777216 - 1);
-            n = (n ^ (n << 6)) & m;
-            n = (n ^ (n >> 5)) & m;
-            n = (n ^ (n << 11)) & m;
+            n ^= n << 6;
+            n ^= (n & m) >> 5;
+            n ^= n << 11;
         }
-        sum += n.cast::<u64>();
+        sum += (n & m).cast::<u64>();
     }
 
     let last = {
@@ -86,16 +86,14 @@ unsafe fn inner_part1(input: &str) -> u64 {
         let n = (n & 0x0F0F0F0F0F0F0F0F) & (u64::MAX << (8 * (8 - len)));
         let mut n = parse8(n);
 
-        // dbg!(len, n);
-
+        let m = 16777216 - 1;
         for _ in 0..2000 {
-            let m = 16777216 - 1;
-            n = (n ^ (n << 6)) & m;
-            n = (n ^ (n >> 5)) & m;
-            n = (n ^ (n << 11)) & m;
+            n ^= n << 6;
+            n ^= (n & m) >> 5;
+            n ^= n << 11;
         }
 
-        n
+        n & m
     };
 
     sum.reduce_sum() + last as u64
