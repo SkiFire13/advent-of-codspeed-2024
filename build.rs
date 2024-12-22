@@ -13,13 +13,14 @@ fn main() {
     // make_d11_lut(25, 4, &lutd11p1);
     // let lutd11p2 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d11p2.lut");
     // make_d11_lut(75, 8, &lutd11p2);
+
     let lutd17p2 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d17p2.lut");
     make_d17_lut(&lutd17p2);
 
-    let lutd21p1 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d21p1.lut");
-    make_d21_lut::<u32>(2, &lutd21p1);
-    let lutd21p2 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d21p2.lut");
-    make_d21_lut::<u64>(25, &lutd21p2);
+    // let lutd21p1 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d21p1.lut");
+    // make_d21_lut::<u32>(2, &lutd21p1);
+    // let lutd21p2 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d21p2.lut");
+    // make_d21_lut::<u64>(25, &lutd21p2);
 }
 
 #[allow(unused)]
