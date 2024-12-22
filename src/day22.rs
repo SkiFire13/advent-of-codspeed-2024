@@ -120,13 +120,13 @@ unsafe fn inner_part2(input: &str) -> u64 {
             let mut n = $n;
             let mut seen = [0u64; (19 * 19 * 19 * 19 + 63) / 64];
 
-            let b1 = n % 10;
+            let b1 = fastdiv::fastmod_u32_10(n);
             n = next(n);
-            let b2 = n % 10;
+            let b2 = fastdiv::fastmod_u32_10(n);
             n = next(n);
-            let b3 = n % 10;
+            let b3 = fastdiv::fastmod_u32_10(n);
             n = next(n);
-            let mut b4 = $n % 10;
+            let mut b4 = fastdiv::fastmod_u32_10(n);
 
             let mut d1 = 9 + b1 - b2;
             let mut d2 = 9 + b2 - b3;
@@ -134,7 +134,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
             for _ in 3..2000 {
                 n = next(n);
-                let b5 = n % 10;
+                let b5 = fastdiv::fastmod_u32_10(n);
 
                 let d4 = 9 + b4 - b5;
 
@@ -173,4 +173,25 @@ unsafe fn inner_part2(input: &str) -> u64 {
         max = max.simd_max(b);
     }
     max.reduce_max() as u64
+}
+
+mod fastdiv {
+    #[inline]
+    const fn mul128_u32(lowbits: u64, d: u32) -> u64 {
+        (lowbits as u128 * d as u128 >> 64) as u64
+    }
+
+    #[inline]
+    const fn compute_m_u32(d: u32) -> u64 {
+        (0xFFFFFFFFFFFFFFFF / d as u64) + 1
+    }
+
+    #[inline]
+    pub const fn fastmod_u32_10(a: u32) -> u32 {
+        const D: u32 = 10;
+        const M: u64 = compute_m_u32(D);
+
+        let lowbits = M.wrapping_mul(a as u64);
+        mul128_u32(lowbits, D) as u32
+    }
 }
