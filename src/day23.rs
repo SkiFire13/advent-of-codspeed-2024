@@ -7,15 +7,16 @@
 #![feature(core_intrinsics)]
 #![feature(int_roundings)]
 
+use std::arch::x86_64::*;
 use std::simd::prelude::*;
 
-pub fn run(input: &str) -> i64 {
-    part1(input) as i64
-}
-
-// pub fn run(input: &str) -> &'static str {
-//     part2(input)
+// pub fn run(input: &str) -> i64 {
+//     part1(input) as i64
 // }
+
+pub fn run(input: &str) -> &'static str {
+    part2(input)
+}
 
 #[inline(always)]
 pub fn part1(input: &str) -> u64 {
@@ -25,6 +26,55 @@ pub fn part1(input: &str) -> u64 {
 #[inline(always)]
 pub fn part2(input: &str) -> &'static str {
     unsafe { inner_part2(input) }
+}
+
+const L: usize = 11;
+
+#[inline(always)]
+unsafe fn parse(input: &str, sets: &mut [[u64; L]; 26 * 26 + 1]) {
+    let mut ptr = input.as_ptr();
+    let end = ptr.add(input.len() - 18);
+    loop {
+        let mut b = ptr.cast::<u8x16>().read_unaligned();
+        b[2] = *ptr.add(16);
+        let b = simd_swizzle!(b, [0, 1, 3, 4, 6, 7, 9, 10, 12, 13, 15, 2, 0, 0, 0, 0]);
+        let b = b - u8x16::splat(b'a');
+        let m = u8x16::from_array([26, 1, 26, 1, 26, 1, 26, 1, 26, 1, 26, 1, 0, 0, 0, 0]);
+        let b = u16x8::from(_mm_maddubs_epi16(b.into(), m.into()));
+
+        let (n1, n2) = (b[0] as usize, b[1] as usize);
+        *sets.get_unchecked_mut(n1).get_unchecked_mut(n2 / 64) |= 1 << (n2 % 64);
+        *sets.get_unchecked_mut(n2).get_unchecked_mut(n1 / 64) |= 1 << (n1 % 64);
+
+        let (n1, n2) = (b[2] as usize, b[3] as usize);
+        *sets.get_unchecked_mut(n1).get_unchecked_mut(n2 / 64) |= 1 << (n2 % 64);
+        *sets.get_unchecked_mut(n2).get_unchecked_mut(n1 / 64) |= 1 << (n1 % 64);
+
+        let (n1, n2) = (b[4] as usize, b[5] as usize);
+        *sets.get_unchecked_mut(n1).get_unchecked_mut(n2 / 64) |= 1 << (n2 % 64);
+        *sets.get_unchecked_mut(n2).get_unchecked_mut(n1 / 64) |= 1 << (n1 % 64);
+
+        ptr = ptr.add(18);
+        if ptr > end {
+            break;
+        }
+    }
+
+    let end = input.as_ptr().add(input.len());
+    while ptr != end {
+        let b1 = *ptr.add(0) as usize - b'a' as usize;
+        let b2 = *ptr.add(1) as usize - b'a' as usize;
+        let b3 = *ptr.add(3) as usize - b'a' as usize;
+        let b4 = *ptr.add(4) as usize - b'a' as usize;
+
+        let n1 = 26 * b1 + b2;
+        let n2 = 26 * b3 + b4;
+
+        *sets.get_unchecked_mut(n1).get_unchecked_mut(n2 / 64) |= 1 << (n2 % 64);
+        *sets.get_unchecked_mut(n2).get_unchecked_mut(n1 / 64) |= 1 << (n1 % 64);
+
+        ptr = ptr.add(6);
+    }
 }
 
 static LUT1: [(u64, u64); 26] = {
@@ -54,30 +104,8 @@ static LUT1: [(u64, u64); 26] = {
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part1(input: &str) -> u64 {
-    let input = input.as_bytes();
-
-    const L: usize = 11;
     let mut sets = [[0u64; L]; 26 * 26 + 1];
-
-    let mut ptr = input.as_ptr();
-    let end = ptr.add(input.len());
-    loop {
-        let b1 = *ptr.add(0) as usize - b'a' as usize;
-        let b2 = *ptr.add(1) as usize - b'a' as usize;
-        let b3 = *ptr.add(3) as usize - b'a' as usize;
-        let b4 = *ptr.add(4) as usize - b'a' as usize;
-
-        let n1 = 26 * b1 + b2;
-        let n2 = 26 * b3 + b4;
-
-        *sets.get_unchecked_mut(n1).get_unchecked_mut(n2 / 64) |= 1 << (n2 % 64);
-        *sets.get_unchecked_mut(n2).get_unchecked_mut(n1 / 64) |= 1 << (n1 % 64);
-
-        ptr = ptr.add(6);
-        if ptr == end {
-            break;
-        }
-    }
+    parse(input, &mut sets);
 
     let mut count = u16x16::splat(0);
     for b2 in 0..26 {
@@ -143,30 +171,8 @@ static mut PART2_OUT: [u8; 13 * 2 + 12] = [b','; 13 * 2 + 12];
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part2(input: &str) -> &'static str {
-    let input = input.as_bytes();
-
-    const L: usize = 11;
     let mut sets = [[0u64; L]; 26 * 26 + 1];
-
-    let mut ptr = input.as_ptr();
-    let end = ptr.add(input.len());
-    loop {
-        let b1 = *ptr.add(0) as usize - b'a' as usize;
-        let b2 = *ptr.add(1) as usize - b'a' as usize;
-        let b3 = *ptr.add(3) as usize - b'a' as usize;
-        let b4 = *ptr.add(4) as usize - b'a' as usize;
-
-        let n1 = 26 * b1 + b2;
-        let n2 = 26 * b3 + b4;
-
-        *sets.get_unchecked_mut(n1).get_unchecked_mut(n2 / 64) |= 1 << (n2 % 64);
-        *sets.get_unchecked_mut(n2).get_unchecked_mut(n1 / 64) |= 1 << (n1 % 64);
-
-        ptr = ptr.add(6);
-        if ptr == end {
-            break;
-        }
-    }
+    parse(input, &mut sets);
 
     for i in 0..26 * 26 {
         let mut s1 = sets.as_ptr().add(i).cast::<[u64; 12]>().read();
