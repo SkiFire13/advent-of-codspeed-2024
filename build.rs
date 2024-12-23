@@ -22,8 +22,8 @@ fn main() {
     // let lutd21p2 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d21p2.lut");
     // make_d21_lut::<u64>(25, &lutd21p2);
 
-    let lutd22p1 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d22p1.lut");
-    make_d22_lut(&lutd22p1);
+    // let lutd22p1 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d22p1.lut");
+    // make_d22_lut(&lutd22p1);
 }
 
 #[allow(unused)]
