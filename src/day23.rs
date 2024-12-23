@@ -92,7 +92,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
 
                 let s2 = *sets.get_unchecked(j);
 
-                for sj in si..L {
+                for sj in 0..L {
                     count += (s[sj] & s2[sj]).count_ones() as u64;
                 }
             }
