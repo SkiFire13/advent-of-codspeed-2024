@@ -21,6 +21,9 @@ fn main() {
     // make_d21_lut::<u32>(2, &lutd21p1);
     // let lutd21p2 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d21p2.lut");
     // make_d21_lut::<u64>(25, &lutd21p2);
+
+    let lutd22p1 = Path::new(&std::env::var("OUT_DIR").unwrap()).join("d22p1.lut");
+    make_d22_lut(&lutd22p1);
 }
 
 #[allow(unused)]
@@ -334,5 +337,32 @@ fn make_d21_lut<T: TryFrom<u64>>(n: usize, path: &Path) {
     let size = lut.len() * std::mem::size_of::<T>();
 
     let lut_u8 = unsafe { std::slice::from_raw_parts(lut.as_ptr().cast::<u8>(), size) };
+    std::fs::write(path, lut_u8).unwrap();
+}
+
+#[allow(unused)]
+fn make_d22_lut(path: &Path) {
+    const M: u32 = 16777216 - 1;
+
+    let mut masks = [0; 24];
+    for i in 0..24 {
+        let mut n = 1 << i;
+        for _ in 0..2000 {
+            n ^= n << 6;
+            n ^= (n & M) >> 5;
+            n ^= n << 11;
+        }
+        masks[i] = n & M;
+    }
+
+    let mut lut = vec![0u32; 1 << 24];
+    for i in 0..24 {
+        let m = masks[i];
+        for n in 0..1 << i {
+            lut[(1 << i) | n] = lut[n] ^ m;
+        }
+    }
+
+    let lut_u8 = unsafe { std::slice::from_raw_parts(lut.as_ptr().cast::<u8>(), 4 * lut.len()) };
     std::fs::write(path, lut_u8).unwrap();
 }

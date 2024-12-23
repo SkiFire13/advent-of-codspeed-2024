@@ -61,41 +61,19 @@ pub(crate) fn next(mut n: u32) -> u32 {
     n
 }
 
+static LUT1: [u32; 1 << 24] =
+    unsafe { std::mem::transmute(*include_bytes!(concat!(env!("OUT_DIR"), "/d22p1.lut"))) };
+
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part1(input: &str) -> u64 {
     let mut ptr = input.as_ptr();
 
-    let mut sum = u64x8::splat(0);
-    while ptr <= input.as_ptr().add(input.len() - 72) {
-        let n0 = parse!(ptr);
-        let n1 = parse!(ptr);
-        let n2 = parse!(ptr);
-        let n3 = parse!(ptr);
-        let n4 = parse!(ptr);
-        let n5 = parse!(ptr);
-        let n6 = parse!(ptr);
-        let n7 = parse!(ptr);
+    let mut sum = 0;
 
-        // dbg!(n0, n1, n2, n3, n4, n5, n6, n7);
-
-        let mut n = u32x8::from_array([n0, n1, n2, n3, n4, n5, n6, n7]);
-        let m = u32x8::splat(M);
-        for _ in 0..2000 {
-            n ^= n << 6;
-            n ^= (n & m) >> 5;
-            n ^= n << 11;
-        }
-        sum += (n & m).cast::<u64>();
-    }
-
-    let mut sum1 = 0;
     while ptr <= input.as_ptr().add(input.len() - 8) {
-        let mut n = parse!(ptr);
-        for _ in 0..2000 {
-            n = next(n);
-        }
-        sum1 += n & M;
+        let n = parse!(ptr);
+        sum += *LUT1.get_unchecked((n & M) as usize) as u64;
     }
 
     if ptr != input.as_ptr().add(input.len()) {
@@ -106,16 +84,11 @@ unsafe fn inner_part1(input: &str) -> u64 {
             .cast::<u64>()
             .read_unaligned();
         let n = (n & 0x0F0F0F0F0F0F0F0F) & (u64::MAX << (8 * (8 - len)));
-        let mut n = parse8(n);
-
-        for _ in 0..2000 {
-            n = next(n);
-        }
-
-        sum1 += n & M;
+        let n = parse8(n);
+        sum += *LUT1.get_unchecked((n & M) as usize) as u64;
     };
 
-    sum.reduce_sum() + sum1 as u64
+    sum
 }
 
 #[allow(unused)]
