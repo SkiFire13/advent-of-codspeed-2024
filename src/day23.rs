@@ -7,6 +7,8 @@
 #![feature(core_intrinsics)]
 #![feature(int_roundings)]
 
+use std::simd::prelude::*;
+
 pub fn run(input: &str) -> i64 {
     part1(input) as i64
 }
@@ -55,7 +57,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
     let input = input.as_bytes();
 
     const L: usize = 11;
-    let mut sets = [[0u64; L]; 26 * 26];
+    let mut sets = [[0u64; L]; 26 * 26 + 1];
 
     let mut ptr = input.as_ptr();
     let end = ptr.add(input.len());
@@ -77,28 +79,62 @@ unsafe fn inner_part1(input: &str) -> u64 {
         }
     }
 
-    let mut count = 0;
+    let mut count = u16x16::splat(0);
     for b2 in 0..26 {
         let i = 26 * (b't' - b'a') as usize + b2;
-        let mut s = *sets.get_unchecked(i);
+
+        let mut s = sets.as_ptr().add(i).cast::<[u64; 12]>().read();
         let (m1, m2) = LUT1[b2];
         s[7] &= m1;
         s[8] &= m2;
+        s[11] = 0;
+
+        let mut acc = u64x4::splat(0);
 
         for si in 0..L {
             while s[si] != 0 {
                 let j = 64 * si + s[si].trailing_zeros() as usize;
                 s[si] &= !(1 << s[si].trailing_zeros());
 
-                let s2 = *sets.get_unchecked(j);
+                let mut s2 = sets.as_ptr().add(j).cast::<[u64; 12]>().read();
+                s2[11] = 0;
 
-                for sj in 0..L {
-                    count += (s[sj] & s2[sj]).count_ones() as u64;
-                }
+                let sa = u64x4::from_slice(&s[4 * 0..4 * 1]);
+                let sb = u64x4::from_slice(&s[4 * 1..4 * 2]);
+                let sc = u64x4::from_slice(&s[4 * 2..4 * 3]);
+                let s2a = u64x4::from_slice(&s2[4 * 0..4 * 1]);
+                let s2b = u64x4::from_slice(&s2[4 * 1..4 * 2]);
+                let s2c = u64x4::from_slice(&s2[4 * 2..4 * 3]);
+
+                let xa = sa & s2a;
+                let xb = sb & s2b;
+                let xc = sc & s2c;
+
+                let m1 = u64x4::splat(u64::from_ne_bytes([0xAA; 8]));
+                let (xah, xal) = ((xa & m1) >> 1, xa & (m1 >> 1));
+                let (xbh, xbl) = ((xb & m1) >> 1, xb & (m1 >> 1));
+                let (xch, xcl) = ((xc & m1) >> 1, xc & (m1 >> 1));
+                let (xh, xl) = (xah + xbh + xch, xal + xbl + xcl);
+
+                let m2 = u64x4::splat(u64::from_ne_bytes([0xCC; 8]));
+                let (xhh, xhl) = ((xh & m2) >> 2, xh & (m2 >> 2));
+                let (xlh, xll) = ((xl & m2) >> 2, xl & (m2 >> 2));
+                let tot4 = xhh + xhl + xlh + xll;
+
+                let m4 = u64x4::splat(u64::from_ne_bytes([0xF0; 8]));
+                let (t4h, t4l) = ((tot4 & m4) >> 4, tot4 & (m4 >> 4));
+                let tot8 = t4h + t4l;
+
+                acc += tot8;
             }
         }
+
+        let mhhhh = u64x4::splat(0xFF00FF00FF00FF00);
+        let mllll = mhhhh >> 8;
+        let (acch, accl) = ((acc & mhhhh) >> 8, acc & mllll);
+        count += std::mem::transmute::<u64x4, u16x16>(acch + accl);
     }
-    count
+    count.reduce_sum() as u64
 }
 
 static mut PART2_OUT: [u8; 13 * 2 + 12] = [b','; 13 * 2 + 12];
