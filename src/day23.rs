@@ -7,13 +7,13 @@
 #![feature(core_intrinsics)]
 #![feature(int_roundings)]
 
-// pub fn run(input: &str) -> i64 {
-//     part1(input) as i64
-// }
-
-pub fn run(input: &str) -> &'static str {
-    part2(input)
+pub fn run(input: &str) -> i64 {
+    part1(input) as i64
 }
+
+// pub fn run(input: &str) -> &'static str {
+//     part2(input)
+// }
 
 #[inline(always)]
 pub fn part1(input: &str) -> u64 {
@@ -25,10 +25,80 @@ pub fn part2(input: &str) -> &'static str {
     unsafe { inner_part2(input) }
 }
 
+static LUT1: [(u64, u64); 26] = {
+    let mut lut = [(u64::MAX, u64::MAX); 26];
+
+    let off = (26 * (b't' - b'a') as usize) % 64;
+
+    let mut i = 0;
+    while i < 26 {
+        let mut j = 0;
+        while j < i {
+            if off + j < 64 {
+                lut[i].0 &= !(1 << (off + j));
+            } else {
+                lut[i].1 &= !(1 << (off + j - 64));
+            }
+
+            j += 1;
+        }
+
+        i += 1;
+    }
+
+    lut
+};
+
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part1(input: &str) -> u64 {
-    0
+    let input = input.as_bytes();
+
+    const L: usize = 11;
+    let mut sets = [[0u64; L]; 26 * 26];
+
+    let mut ptr = input.as_ptr();
+    let end = ptr.add(input.len());
+    loop {
+        let b1 = *ptr.add(0) as usize - b'a' as usize;
+        let b2 = *ptr.add(1) as usize - b'a' as usize;
+        let b3 = *ptr.add(3) as usize - b'a' as usize;
+        let b4 = *ptr.add(4) as usize - b'a' as usize;
+
+        let n1 = 26 * b1 + b2;
+        let n2 = 26 * b3 + b4;
+
+        *sets.get_unchecked_mut(n1).get_unchecked_mut(n2 / 64) |= 1 << (n2 % 64);
+        *sets.get_unchecked_mut(n2).get_unchecked_mut(n1 / 64) |= 1 << (n1 % 64);
+
+        ptr = ptr.add(6);
+        if ptr == end {
+            break;
+        }
+    }
+
+    let mut count = 0;
+    for b2 in 0..26 {
+        let i = 26 * (b't' - b'a') as usize + b2;
+        let mut s = *sets.get_unchecked(i);
+        let (m1, m2) = LUT1[b2];
+        s[7] &= m1;
+        s[8] &= m2;
+
+        for si in 0..L {
+            while s[si] != 0 {
+                let j = 64 * si + s[si].trailing_zeros() as usize;
+                s[si] &= !(1 << s[si].trailing_zeros());
+
+                let s2 = *sets.get_unchecked(j);
+
+                for sj in si..L {
+                    count += (s[sj] & s2[sj]).count_ones() as u64;
+                }
+            }
+        }
+    }
+    count
 }
 
 static mut PART2_OUT: [u8; 13 * 2 + 12] = [b','; 13 * 2 + 12];
