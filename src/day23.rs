@@ -164,9 +164,8 @@ unsafe fn inner_part1(input: &str) -> u64 {
             }
         }
 
-        let mhhhh = u64x4::splat(0xFF00FF00FF00FF00);
-        let mllll = mhhhh >> 8;
-        let (acch, accl) = ((acc & mhhhh) >> 8, acc & mllll);
+        let mh8 = u64x4::splat(0xFF00FF00FF00FF00);
+        let (acch, accl) = ((acc & mh8) >> 8, acc & (mh8 >> 8));
         count += std::mem::transmute::<u64x4, u16x16>(acch + accl);
     }
     count.reduce_sum() as u64
