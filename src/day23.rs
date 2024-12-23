@@ -10,13 +10,13 @@
 use std::arch::x86_64::*;
 use std::simd::prelude::*;
 
-// pub fn run(input: &str) -> i64 {
-//     part1(input) as i64
-// }
-
-pub fn run(input: &str) -> &'static str {
-    part2(input)
+pub fn run(input: &str) -> i64 {
+    part1(input) as i64
 }
+
+// pub fn run(input: &str) -> &'static str {
+//     part2(input)
+// }
 
 #[inline(always)]
 pub fn part1(input: &str) -> u64 {
@@ -42,17 +42,19 @@ unsafe fn parse(input: &str, sets: &mut [[u64; L]; 26 * 26 + 1]) {
         let m = u8x16::from_array([26, 1, 26, 1, 26, 1, 26, 1, 26, 1, 26, 1, 0, 0, 0, 0]);
         let b = u16x8::from(_mm_maddubs_epi16(b.into(), m.into()));
 
-        let (n1, n2) = (b[0] as usize, b[1] as usize);
-        *sets.get_unchecked_mut(n1).get_unchecked_mut(n2 / 64) |= 1 << (n2 % 64);
-        *sets.get_unchecked_mut(n2).get_unchecked_mut(n1 / 64) |= 1 << (n1 % 64);
+        let i = b * u16x8::splat(L as u16) + (simd_swizzle!(b, [1, 0, 3, 2, 5, 4, 7, 6]) >> 6);
 
-        let (n1, n2) = (b[2] as usize, b[3] as usize);
-        *sets.get_unchecked_mut(n1).get_unchecked_mut(n2 / 64) |= 1 << (n2 % 64);
-        *sets.get_unchecked_mut(n2).get_unchecked_mut(n1 / 64) |= 1 << (n1 % 64);
+        let (x, y) = (0, 1);
+        *sets.as_mut_ptr().cast::<u64>().add(i[x] as usize) ^= 1 << (b[y] & 63);
+        *sets.as_mut_ptr().cast::<u64>().add(i[y] as usize) ^= 1 << (b[x] & 63);
 
-        let (n1, n2) = (b[4] as usize, b[5] as usize);
-        *sets.get_unchecked_mut(n1).get_unchecked_mut(n2 / 64) |= 1 << (n2 % 64);
-        *sets.get_unchecked_mut(n2).get_unchecked_mut(n1 / 64) |= 1 << (n1 % 64);
+        let (x, y) = (2, 3);
+        *sets.as_mut_ptr().cast::<u64>().add(i[x] as usize) ^= 1 << (b[y] & 63);
+        *sets.as_mut_ptr().cast::<u64>().add(i[y] as usize) ^= 1 << (b[x] & 63);
+
+        let (x, y) = (4, 5);
+        *sets.as_mut_ptr().cast::<u64>().add(i[x] as usize) ^= 1 << (b[y] & 63);
+        *sets.as_mut_ptr().cast::<u64>().add(i[y] as usize) ^= 1 << (b[x] & 63);
 
         ptr = ptr.add(18);
         if ptr > end {
