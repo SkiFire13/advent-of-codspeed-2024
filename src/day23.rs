@@ -83,25 +83,24 @@ unsafe fn inner_part1(input: &str) -> u64 {
     for b2 in 0..26 {
         let i = 26 * (b't' - b'a') as usize + b2;
 
-        let mut s = sets.as_ptr().add(i).cast::<[u64; 12]>().read();
+        let mut s1 = sets.as_ptr().add(i).cast::<[u64; 12]>().read();
         let (m1, m2) = LUT1[b2];
-        s[7] &= m1;
-        s[8] &= m2;
-        s[11] = 0;
+        s1[7] &= m1;
+        s1[8] &= m2;
+        s1[11] = 0;
 
         let mut acc = u64x4::splat(0);
 
         for si in 0..L {
-            while s[si] != 0 {
-                let j = 64 * si + s[si].trailing_zeros() as usize;
-                s[si] &= !(1 << s[si].trailing_zeros());
+            while s1[si] != 0 {
+                let j = 64 * si + s1[si].trailing_zeros() as usize;
+                s1[si] &= !(1 << s1[si].trailing_zeros());
 
-                let mut s2 = sets.as_ptr().add(j).cast::<[u64; 12]>().read();
-                s2[11] = 0;
+                let s2 = sets.as_ptr().add(j).cast::<[u64; 12]>().read();
 
-                let sa = u64x4::from_slice(&s[4 * 0..4 * 1]);
-                let sb = u64x4::from_slice(&s[4 * 1..4 * 2]);
-                let sc = u64x4::from_slice(&s[4 * 2..4 * 3]);
+                let sa = u64x4::from_slice(&s1[4 * 0..4 * 1]);
+                let sb = u64x4::from_slice(&s1[4 * 1..4 * 2]);
+                let sc = u64x4::from_slice(&s1[4 * 2..4 * 3]);
                 let s2a = u64x4::from_slice(&s2[4 * 0..4 * 1]);
                 let s2b = u64x4::from_slice(&s2[4 * 1..4 * 2]);
                 let s2c = u64x4::from_slice(&s2[4 * 2..4 * 3]);
@@ -146,7 +145,7 @@ unsafe fn inner_part2(input: &str) -> &'static str {
     let input = input.as_bytes();
 
     const L: usize = 11;
-    let mut sets = [[0u64; L]; 26 * 26];
+    let mut sets = [[0u64; L]; 26 * 26 + 1];
 
     let mut ptr = input.as_ptr();
     let end = ptr.add(input.len());
@@ -169,8 +168,9 @@ unsafe fn inner_part2(input: &str) -> &'static str {
     }
 
     for i in 0..26 * 26 {
-        let s = *sets.get_unchecked(i);
-        if s == [0; L] {
+        let mut s1 = sets.as_ptr().add(i).cast::<[u64; 12]>().read();
+        s1[11] = 0;
+        if s1 == [0; 12] {
             continue;
         }
 
@@ -179,17 +179,41 @@ unsafe fn inner_part2(input: &str) -> &'static str {
                 'handle: {
                     let other = $other;
 
-                    let s2 = *sets.get_unchecked(other);
-                    let mut common = [0; L];
-                    let mut count = 0;
-                    for j in 0..L {
-                        *common.get_unchecked_mut(j) = s.get_unchecked(j) & s2.get_unchecked(j);
-                        count += common.get_unchecked_mut(j).count_ones();
-                    }
+                    let s2 = sets.as_ptr().add(other).cast::<[u64; 12]>().read();
+
+                    let sa = u64x4::from_slice(&s1[4 * 0..4 * 1]);
+                    let sb = u64x4::from_slice(&s1[4 * 1..4 * 2]);
+                    let sc = u64x4::from_slice(&s1[4 * 2..4 * 3]);
+                    let s2a = u64x4::from_slice(&s2[4 * 0..4 * 1]);
+                    let s2b = u64x4::from_slice(&s2[4 * 1..4 * 2]);
+                    let s2c = u64x4::from_slice(&s2[4 * 2..4 * 3]);
+
+                    let xa = sa & s2a;
+                    let xb = sb & s2b;
+                    let xc = sc & s2c;
+
+                    let m1 = u64x4::splat(u64::from_ne_bytes([0xAA; 8]));
+                    let (xah, xal) = ((xa & m1) >> 1, xa & (m1 >> 1));
+                    let (xbh, xbl) = ((xb & m1) >> 1, xb & (m1 >> 1));
+                    let (xch, xcl) = ((xc & m1) >> 1, xc & (m1 >> 1));
+                    let (xh, xl) = (xah + xbh + xch, xal + xbl + xcl);
+
+                    let m2 = u64x4::splat(u64::from_ne_bytes([0xCC; 8]));
+                    let (xhh, xhl) = ((xh & m2) >> 2, xh & (m2 >> 2));
+                    let (xlh, xll) = ((xl & m2) >> 2, xl & (m2 >> 2));
+                    let tot4 = xhh + xhl + xlh + xll;
+
+                    let m4 = u64x4::splat(u64::from_ne_bytes([0xF0; 8]));
+                    let (t4h, t4l) = ((tot4 & m4) >> 4, tot4 & (m4 >> 4));
+                    let tot8 = t4h + t4l;
+
+                    let count = std::mem::transmute::<_, u8x32>(tot8).reduce_sum();
 
                     if count != 11 {
                         break 'handle;
                     }
+
+                    let mut common = std::mem::transmute::<_, [u64; 12]>([xa, xb, xc]);
 
                     for i in 0..L {
                         let mut b = common[i];
@@ -197,12 +221,35 @@ unsafe fn inner_part2(input: &str) -> &'static str {
                             let j = 64 * i + b.trailing_zeros() as usize;
                             b &= !(1 << b.trailing_zeros());
 
-                            let s3 = *sets.get_unchecked(j);
+                            let s2 = sets.as_ptr().add(j).cast::<[u64; 12]>().read();
 
-                            let mut count = 0;
-                            for k in 0..L {
-                                count += (s.get_unchecked(k) & s3.get_unchecked(k)).count_ones();
-                            }
+                            let sa = u64x4::from_slice(&s1[4 * 0..4 * 1]);
+                            let sb = u64x4::from_slice(&s1[4 * 1..4 * 2]);
+                            let sc = u64x4::from_slice(&s1[4 * 2..4 * 3]);
+                            let s2a = u64x4::from_slice(&s2[4 * 0..4 * 1]);
+                            let s2b = u64x4::from_slice(&s2[4 * 1..4 * 2]);
+                            let s2c = u64x4::from_slice(&s2[4 * 2..4 * 3]);
+
+                            let xa = sa & s2a;
+                            let xb = sb & s2b;
+                            let xc = sc & s2c;
+
+                            let m1 = u64x4::splat(u64::from_ne_bytes([0xAA; 8]));
+                            let (xah, xal) = ((xa & m1) >> 1, xa & (m1 >> 1));
+                            let (xbh, xbl) = ((xb & m1) >> 1, xb & (m1 >> 1));
+                            let (xch, xcl) = ((xc & m1) >> 1, xc & (m1 >> 1));
+                            let (xh, xl) = (xah + xbh + xch, xal + xbl + xcl);
+
+                            let m2 = u64x4::splat(u64::from_ne_bytes([0xCC; 8]));
+                            let (xhh, xhl) = ((xh & m2) >> 2, xh & (m2 >> 2));
+                            let (xlh, xll) = ((xl & m2) >> 2, xl & (m2 >> 2));
+                            let tot4 = xhh + xhl + xlh + xll;
+
+                            let m4 = u64x4::splat(u64::from_ne_bytes([0xF0; 8]));
+                            let (t4h, t4l) = ((tot4 & m4) >> 4, tot4 & (m4 >> 4));
+                            let tot8 = t4h + t4l;
+
+                            let count = std::mem::transmute::<_, u8x32>(tot8).reduce_sum();
 
                             if count != 11 {
                                 break 'handle;
@@ -230,11 +277,11 @@ unsafe fn inner_part2(input: &str) -> &'static str {
         }
 
         let mut j = 0;
-        let mut b = *s.get_unchecked(j);
+        let mut b = *s1.get_unchecked(j);
 
         while b == 0 {
             j += 1;
-            b = *s.get_unchecked(j);
+            b = *s1.get_unchecked(j);
         }
         handle!(64 * j + b.trailing_zeros() as usize);
 
@@ -242,7 +289,7 @@ unsafe fn inner_part2(input: &str) -> &'static str {
 
         while b == 0 {
             j += 1;
-            b = *s.get_unchecked(j);
+            b = *s1.get_unchecked(j);
         }
         handle!(64 * j + b.trailing_zeros() as usize);
     }
