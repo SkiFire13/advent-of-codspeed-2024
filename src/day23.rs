@@ -93,8 +93,9 @@ unsafe fn inner_part1(input: &str) -> u64 {
 
         for si in 0..L {
             while s1[si] != 0 {
-                let j = 64 * si + s1[si].trailing_zeros() as usize;
-                s1[si] &= !(1 << s1[si].trailing_zeros());
+                let o = s1[si].trailing_zeros() as usize;
+                let j = 64 * si + o;
+                s1[si] ^= 1 << o;
 
                 let s2 = sets.as_ptr().add(j).cast::<[u64; 12]>().read();
 
@@ -218,8 +219,9 @@ unsafe fn inner_part2(input: &str) -> &'static str {
                     for i in 0..L {
                         let mut b = common[i];
                         while b != 0 {
-                            let j = 64 * i + b.trailing_zeros() as usize;
-                            b &= !(1 << b.trailing_zeros());
+                            let o = b.trailing_zeros() as usize;
+                            let j = 64 * i + o;
+                            b ^= 1 << o;
 
                             let s2 = sets.as_ptr().add(j).cast::<[u64; 12]>().read();
 
@@ -263,8 +265,9 @@ unsafe fn inner_part2(input: &str) -> &'static str {
                     for i in 0..L {
                         let mut b = common[i];
                         while b != 0 {
-                            let j = 64 * i + b.trailing_zeros() as usize;
-                            b &= !(1 << b.trailing_zeros());
+                            let o = b.trailing_zeros() as usize;
+                            let j = 64 * i + o;
+                            b ^= 1 << o;
 
                             *PART2_OUT.get_unchecked_mut(pos) = b'a' + (j / 26) as u8;
                             *PART2_OUT.get_unchecked_mut(pos + 1) = b'a' + (j % 26) as u8;
