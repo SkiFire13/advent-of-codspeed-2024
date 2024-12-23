@@ -64,9 +64,10 @@ pub(crate) fn next(mut n: u32) -> u32 {
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part1(input: &str) -> u64 {
-    let mut sum = u64x8::splat(0);
     let mut ptr = input.as_ptr();
-    for _ in 0..200 {
+
+    let mut sum = u64x8::splat(0);
+    while ptr <= input.as_ptr().add(input.len() - 72) {
         let n0 = parse!(ptr);
         let n1 = parse!(ptr);
         let n2 = parse!(ptr);
@@ -88,7 +89,16 @@ unsafe fn inner_part1(input: &str) -> u64 {
         sum += (n & m).cast::<u64>();
     }
 
-    let last = {
+    let mut sum1 = 0;
+    while ptr <= input.as_ptr().add(input.len() - 8) {
+        let mut n = parse!(ptr);
+        for _ in 0..2000 {
+            n = next(n);
+        }
+        sum1 += n & M;
+    }
+
+    if ptr != input.as_ptr().add(input.len()) {
         let len = input.as_ptr().add(input.len()).offset_from(ptr) - 1;
         let n = input
             .as_ptr()
@@ -102,10 +112,10 @@ unsafe fn inner_part1(input: &str) -> u64 {
             n = next(n);
         }
 
-        n & M
+        sum1 += n & M;
     };
 
-    sum.reduce_sum() + last as u64
+    sum.reduce_sum() + sum1 as u64
 }
 
 #[allow(unused)]
@@ -113,7 +123,6 @@ unsafe fn inner_part1(input: &str) -> u64 {
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part2(input: &str) -> u64 {
     let input = input.as_bytes();
-    let mut ptr = input.as_ptr();
 
     const COUNTS_LEN: usize = (20usize * 20 * 20 * 20).next_multiple_of(64);
     let mut counts = [0u16; COUNTS_LEN];
@@ -154,7 +163,9 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
     let mut seen = [0u8; COUNTS_LEN];
     let mut i = 1;
-    for _ in 0..1600 {
+
+    let mut ptr = input.as_ptr();
+    while ptr <= input.as_ptr().add(input.len() - 8) {
         let n = parse!(ptr);
         handle!(n, i, seen);
         i = i.wrapping_add(1);
@@ -164,7 +175,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
         }
     }
 
-    {
+    if ptr != input.as_ptr().add(input.len()) {
         let len = input.as_ptr().add(input.len()).offset_from(ptr) - 1;
         let n = input
             .as_ptr()
@@ -173,7 +184,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
             .read_unaligned();
         let n = (n & 0x0F0F0F0F0F0F0F0F) & (u64::MAX << (8 * (8 - len)));
         let n = parse8(n);
-        handle!(n, 1, seen);
+        handle!(n, i, seen);
     }
 
     let mut max = u16x16::splat(0);

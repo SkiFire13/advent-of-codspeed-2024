@@ -13,7 +13,41 @@ use std::simd::prelude::*;
 
 use rayon::prelude::*;
 
-use super::day22::{next, parse, parse8, M};
+#[inline(always)]
+pub(crate) fn parse8(n: u64) -> u32 {
+    use std::num::Wrapping as W;
+
+    let mut n = W(n);
+    let mask = W(0xFF | (0xFF << 32));
+    let mul1 = W(100 + (1000000 << 32));
+    let mul2 = W(1 + (10000 << 32));
+
+    n = (n * W(10)) + (n >> 8);
+    n = (((n & mask) * mul1) + (((n >> 16) & mask) * mul2)) >> 32;
+
+    n.0 as u32
+}
+
+macro_rules! parse {
+    ($ptr:ident) => {{
+        let n = $ptr.cast::<u64>().read_unaligned();
+        let len = _pext_u64(n, 0x1010101010101010).trailing_ones();
+        let n = (n & 0x0F0F0F0F0F0F0F0F) << (8 * (8 - len));
+        $ptr = $ptr.add(len as usize + 1);
+        parse8(n)
+    }};
+}
+pub(crate) use parse;
+
+pub(crate) const M: u32 = 16777216 - 1;
+
+#[inline(always)]
+pub(crate) fn next(mut n: u32) -> u32 {
+    n ^= n << 6;
+    n ^= (n & M) >> 5;
+    n ^= n << 11;
+    n
+}
 
 pub fn run(input: &str) -> i64 {
     part2(input) as i64
@@ -28,7 +62,6 @@ pub fn part2(input: &str) -> u64 {
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part2(input: &str) -> u64 {
     let input = input.as_bytes();
-    let mut ptr = input.as_ptr();
 
     const COUNTS_LEN: usize = (20usize * 20 * 20 * 20).next_multiple_of(64);
     static mut COUNTS: [u16; 128 * COUNTS_LEN] = [0; 128 * COUNTS_LEN];
@@ -79,13 +112,16 @@ unsafe fn inner_part2(input: &str) -> u64 {
         }};
     }
 
-    let mut nums = [MaybeUninit::uninit(); 1601];
+    let mut nums = [MaybeUninit::<u32>::uninit(); 3000];
+    let mut nums_len = 0;
 
-    for i in 0..1600 {
-        nums[i].write(parse!(ptr));
+    let mut ptr = input.as_ptr();
+    while ptr <= input.as_ptr().add(input.len() - 8) {
+        *nums.get_unchecked_mut(nums_len).as_mut_ptr() = parse!(ptr);
+        nums_len += 1;
     }
 
-    {
+    if ptr != input.as_ptr().add(input.len()) {
         let len = input.as_ptr().add(input.len()).offset_from(ptr) - 1;
         let n = input
             .as_ptr()
@@ -94,8 +130,11 @@ unsafe fn inner_part2(input: &str) -> u64 {
             .read_unaligned();
         let n = (n & 0x0F0F0F0F0F0F0F0F) & (u64::MAX << (8 * (8 - len)));
         let n = parse8(n);
-        nums[1600].write(n);
+        *nums.get_unchecked_mut(nums_len).as_mut_ptr() = n;
+        nums_len += 1;
     }
+
+    let nums = std::slice::from_raw_parts(nums.as_ptr().cast::<u32>(), nums_len);
 
     nums.par_chunks((nums.len() + cores - 1) / cores)
         .zip(counts.par_chunks_mut(COUNTS_LEN))
@@ -103,7 +142,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
         .for_each(|(chunk, counts)| {
             let mut seen = [0u8; COUNTS_LEN];
             for (i, &n) in chunk.iter().enumerate() {
-                handle!(n.assume_init(), i as u8, seen, counts);
+                handle!(n, i as u8 + 1, seen, counts);
             }
         });
 
