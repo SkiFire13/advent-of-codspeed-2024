@@ -132,32 +132,34 @@ unsafe fn inner_part1(input: &str) -> u64 {
     let mut out = 0;
 
     for z in 0..46 {
-        unsafe fn calc_rec(n: usize, ops: &[[u8; 3]; 224], values: &mut [u8; 224]) -> u8 {
-            let [l, op, r] = *ops.get_unchecked(n);
-
-            let mut lv = *values.get_unchecked(l as usize);
-            if lv == u8::MAX {
-                lv = calc_rec(l as usize, ops, values);
-            }
-
-            let mut rv = *values.get_unchecked(r as usize);
-            if rv == u8::MAX {
-                rv = calc_rec(r as usize, ops, values);
-            }
-
-            let res = match op {
-                0 => lv & rv,
-                1 => lv ^ rv,
-                2 => lv | rv,
-                _ => std::hint::unreachable_unchecked(),
+        macro_rules! calc_rec {
+            (force [fuel: $($fuel:tt)*] $n:expr) => {{
+                let n = $n as usize;
+                let [l, op, r] = *ops.get_unchecked(n);
+                let l = calc_rec!([fuel: $($fuel)*] l);
+                let r = calc_rec!([fuel: $($fuel)*] r);
+                match op {
+                    0 => l & r,
+                    1 => l ^ r,
+                    2 => l | r,
+                    _ => std::hint::unreachable_unchecked(),
+                }
+            }};
+            ([fuel:] $n:expr) => {
+                *values.get_unchecked($n as usize)
             };
-
-            *values.get_unchecked_mut(n) = res;
-
-            res
+            ([fuel: f $($rest:tt)*] $n:expr) => {{
+                let n = $n as usize;
+                let mut v = *values.get_unchecked(n);
+                if v == u8::MAX {
+                    v = calc_rec!(force [fuel: $($rest)*] n);
+                    *values.get_unchecked_mut(n) = v;
+                }
+                v
+            }};
         }
 
-        out |= (calc_rec(z, ops, &mut values) as u64) << z;
+        out |= (calc_rec!(force [fuel: f f f f] z) as u64) << z;
     }
 
     out
