@@ -35,6 +35,8 @@ unsafe fn inner_part1(input: &str) -> u64 {
     struct Aligned([u32; 512]);
     static mut PREVS: Aligned = Aligned([0; 512]);
     let (list0, list1) = PREVS.0.split_at_mut(256);
+    let list0 = list0.as_mut_ptr();
+    let list1 = list1.as_mut_ptr();
     let (mut len0, mut len1) = (0, 0);
 
     let mut count = i32x8::splat(0);
@@ -45,14 +47,41 @@ unsafe fn inner_part1(input: &str) -> u64 {
         let b = ptr.add(4).cast::<u8x32>().read_unaligned();
         let m = b.simd_eq(u8x32::splat(b'#')).to_bitmask() as u32;
 
-        let (prevsi, prevsi_len, prevsj, prevsj_len) = if *ptr.add(4) == b'#' {
-            (&*list0, len0, &mut *list1, &mut len1)
-        } else {
-            (&*list1, len1, &mut *list0, &mut len0)
-        };
+        let prevsi: *const [u32; 256];
+        let prevsi_len: usize;
 
-        *prevsj.get_unchecked_mut(*prevsj_len) = m;
-        *prevsj_len += 1;
+        core::arch::asm!(
+            "cmp {c}, {dot}",
+
+            "mov {prevsi}, {list0}",
+            "mov {prevsi_len}, {len0:r}",
+            "cmove {prevsi}, {list1}",
+            "cmove {prevsi_len}, {len1:r}",
+
+            "mov {lista}, {list1}",
+            "mov {lena}, {len1:r}",
+            "cmove {lista}, {list0}",
+            "cmove {lena}, {len0:r}",
+            "mov [{lista} + 4 * {lena}], {m:e}",
+
+            "lea {new_len0}, [{len0:r} + 1]",
+            "lea {new_len1}, [{len1:r} + 1]",
+            "cmove {len0:r}, {new_len0}",
+            "cmovne {len1:r}, {new_len1}",
+            c = in(reg_byte) *ptr.add(4),
+            m = in(reg) m,
+            dot = const b'.',
+            prevsi = out(reg) prevsi,
+            prevsi_len = out(reg) prevsi_len,
+            list0 = in(reg) list0,
+            len0 = inout(reg) len0,
+            list1 = in(reg) list1,
+            len1 = inout(reg) len1,
+            lista = out(reg) _,
+            lena = out(reg) _,
+            new_len0 = out(reg) _,
+            new_len1 = out(reg) _,
+        );
 
         {
             let mut ptr = prevsi.as_ptr().cast::<u32x8>();
