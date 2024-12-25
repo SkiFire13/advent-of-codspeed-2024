@@ -6,6 +6,7 @@
 #![feature(array_ptr_get)]
 #![feature(core_intrinsics)]
 #![feature(int_roundings)]
+#![feature(fn_align)]
 
 use std::simd::prelude::*;
 
@@ -14,17 +15,19 @@ pub fn run(input: &str) -> i64 {
 }
 
 #[inline(always)]
+#[repr(align(64))]
 pub fn part1(input: &str) -> u64 {
     unsafe { inner_part1(input) }
 }
 
 #[inline(always)]
-pub fn part2(input: &str) -> u64 {
-    unsafe { inner_part2(input) }
+pub fn part2(_input: &str) -> u64 {
+    0
 }
 
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
+#[repr(align(64))]
 unsafe fn inner_part1(input: &str) -> u64 {
     let input = input.as_bytes();
 
@@ -104,11 +107,4 @@ unsafe fn inner_part1(input: &str) -> u64 {
     }
 
     count.reduce_sum() as u64
-}
-
-#[allow(unused)]
-#[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
-#[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
-unsafe fn inner_part2(input: &str) -> u64 {
-    0
 }
