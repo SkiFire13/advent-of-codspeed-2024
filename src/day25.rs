@@ -72,6 +72,14 @@ unsafe fn inner_part1(input: &str) -> u64 {
                 ptr = ptr.add(8);
             }
 
+            if ptr <= end.wrapping_sub(4) {
+                count -= ((*ptr.add(0)) & m).simd_eq(z).to_int();
+                count -= ((*ptr.add(1)) & m).simd_eq(z).to_int();
+                count -= ((*ptr.add(2)) & m).simd_eq(z).to_int();
+                count -= ((*ptr.add(3)) & m).simd_eq(z).to_int();
+                ptr = ptr.add(4);
+            }
+
             while ptr < end.wrapping_sub(1) {
                 count -= (*ptr & m).simd_eq(z).to_int();
                 ptr = ptr.add(1);
