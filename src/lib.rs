@@ -33,3 +33,4 @@ pub mod day20;
 // pub mod day22par;
 pub mod day23;
 pub mod day24;
+pub mod day25;
