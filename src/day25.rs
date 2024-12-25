@@ -60,12 +60,16 @@ unsafe fn inner_part1(input: &str) -> u64 {
             let m = u32x8::splat(m);
             let z = u32x8::splat(0);
 
-            while ptr <= end.wrapping_sub(4) {
+            while ptr <= end.wrapping_sub(8) {
                 count -= ((*ptr.add(0)) & m).simd_eq(z).to_int();
                 count -= ((*ptr.add(1)) & m).simd_eq(z).to_int();
                 count -= ((*ptr.add(2)) & m).simd_eq(z).to_int();
                 count -= ((*ptr.add(3)) & m).simd_eq(z).to_int();
-                ptr = ptr.add(4);
+                count -= ((*ptr.add(4)) & m).simd_eq(z).to_int();
+                count -= ((*ptr.add(5)) & m).simd_eq(z).to_int();
+                count -= ((*ptr.add(6)) & m).simd_eq(z).to_int();
+                count -= ((*ptr.add(7)) & m).simd_eq(z).to_int();
+                ptr = ptr.add(8);
             }
 
             while ptr < end.wrapping_sub(1) {
