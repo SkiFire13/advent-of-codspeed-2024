@@ -28,46 +28,85 @@ pub fn part2(input: &str) -> u64 {
 unsafe fn inner_part1(input: &str) -> u64 {
     let input = input.as_bytes();
 
-    static mut PREVS: [u64; 500] = [0; 500];
-    let prevs = &mut PREVS;
-    let mut prevs_len = 0;
+    #[repr(align(64))]
+    struct Aligned([u32; 500]);
 
-    let mut count = 0;
+    static mut PREVS0: Aligned = Aligned([0; 500]);
+    static mut PREVS1: Aligned = Aligned([0; 500]);
 
-    let ptr = input.as_ptr();
-    let mut i = 0;
-    let len = input.len();
+    let prevs0 = &mut PREVS0;
+    let mut prevs0_len = 0;
+    let prevs1 = &mut PREVS1;
+    let mut prevs1_len = 0;
 
-    let mut b = ptr.cast::<u8x64>().read_unaligned();
+    let mut count = i32x8::splat(0);
+
+    let mut ptr = input.as_ptr();
+    let end = ptr.add(input.len());
 
     loop {
-        let m = b.simd_eq(u8x64::splat(b'#')).to_bitmask() & ((1 << 42) - 1);
+        let b = ptr.add(4).cast::<u8x32>().read_unaligned();
+        let m = b.simd_eq(u8x32::splat(b'#')).to_bitmask() as u32;
 
-        // TODO: explicit SIMD
-        for j in 0..prevs_len {
-            if *prevs.get_unchecked(j) & m == 0 {
-                count += 1;
+        let (prevsi, prevsi_len, prevsj, prevsj_len) = if *ptr.add(4) == b'#' {
+            (&*prevs0, prevs0_len, &mut *prevs1, &mut prevs1_len)
+        } else {
+            (&*prevs1, prevs1_len, &mut *prevs0, &mut prevs0_len)
+        };
+
+        *prevsj.0.get_unchecked_mut(*prevsj_len) = m;
+        *prevsj_len += 1;
+
+        {
+            let mut ptr = prevsi.0.as_ptr().cast::<u32x8>();
+            let end = prevsi.0.as_ptr().add(prevsi_len).cast::<u32x8>();
+
+            while ptr.add(8) <= end {
+                count -= ((*ptr) & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
+                ptr = ptr.add(1);
+                count -= ((*ptr) & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
+                ptr = ptr.add(1);
+                count -= ((*ptr) & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
+                ptr = ptr.add(1);
+                count -= ((*ptr) & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
+                ptr = ptr.add(1);
+                count -= ((*ptr) & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
+                ptr = ptr.add(1);
+                count -= ((*ptr) & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
+                ptr = ptr.add(1);
+                count -= ((*ptr) & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
+                ptr = ptr.add(1);
+                count -= ((*ptr) & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
+                ptr = ptr.add(1);
             }
+            while ptr.add(1) <= end {
+                count -= ((*ptr) & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
+                ptr = ptr.add(1);
+            }
+
+            #[rustfmt::skip]
+            static MASKS: [u32x8; 8] = [
+                u32x8::from_array([u32::MAX,u32::MAX,u32::MAX,u32::MAX,u32::MAX,u32::MAX,u32::MAX,u32::MAX,]),
+                u32x8::from_array([0,u32::MAX,u32::MAX,u32::MAX,u32::MAX,u32::MAX,u32::MAX,u32::MAX,]),
+                u32x8::from_array([0,0,u32::MAX,u32::MAX,u32::MAX,u32::MAX,u32::MAX,u32::MAX,]),
+                u32x8::from_array([0,0,0,u32::MAX,u32::MAX,u32::MAX,u32::MAX,u32::MAX,]),
+                u32x8::from_array([0,0,0,0,u32::MAX,u32::MAX,u32::MAX,u32::MAX,]),
+                u32x8::from_array([0,0,0,0,0,u32::MAX,u32::MAX,u32::MAX,]),
+                u32x8::from_array([0,0,0,0,0,0,u32::MAX,u32::MAX,]),
+                u32x8::from_array([0,0,0,0,0,0,0,u32::MAX,]),
+            ];
+
+            let b = *ptr | MASKS[end.cast::<u32>().offset_from(ptr.cast::<u32>()) as usize];
+            count -= (b & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
         }
 
-        *prevs.get_unchecked_mut(prevs_len) = m;
-        prevs_len += 1;
-
-        i += 43;
-        if i + 43 <= len {
-            b = ptr.add(i).cast::<u8x64>().read_unaligned();
-        } else if i < len {
-            b = ptr
-                .add(len - 64)
-                .cast::<u8x64>()
-                .read_unaligned()
-                .rotate_elements_left::<{ 64 - 42 }>();
-        } else {
+        ptr = ptr.add(43);
+        if ptr >= end {
             break;
         }
     }
 
-    count
+    count.reduce_sum() as u64
 }
 
 #[allow(unused)]
