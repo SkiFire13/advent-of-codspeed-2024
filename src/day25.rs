@@ -60,32 +60,28 @@ unsafe fn inner_part1(input: &str) -> u64 {
         {
             let mut ptr = prevsi.0.as_ptr().cast::<u32x8>();
             let end = prevsi.0.as_ptr().add(prevsi_len).cast::<u32x8>();
+            let m = u32x8::splat(m);
+            let z = u32x8::splat(0);
 
             while ptr.add(8) <= end {
-                count -= ((*ptr) & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
-                ptr = ptr.add(1);
-                count -= ((*ptr) & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
-                ptr = ptr.add(1);
-                count -= ((*ptr) & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
-                ptr = ptr.add(1);
-                count -= ((*ptr) & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
-                ptr = ptr.add(1);
-                count -= ((*ptr) & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
-                ptr = ptr.add(1);
-                count -= ((*ptr) & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
-                ptr = ptr.add(1);
-                count -= ((*ptr) & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
-                ptr = ptr.add(1);
-                count -= ((*ptr) & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
-                ptr = ptr.add(1);
+                count -= ((*ptr.add(0)) & m).simd_eq(z).to_int();
+                count -= ((*ptr.add(1)) & m).simd_eq(z).to_int();
+                count -= ((*ptr.add(2)) & m).simd_eq(z).to_int();
+                count -= ((*ptr.add(3)) & m).simd_eq(z).to_int();
+                count -= ((*ptr.add(4)) & m).simd_eq(z).to_int();
+                count -= ((*ptr.add(5)) & m).simd_eq(z).to_int();
+                count -= ((*ptr.add(6)) & m).simd_eq(z).to_int();
+                count -= ((*ptr.add(7)) & m).simd_eq(z).to_int();
+                ptr = ptr.add(8);
             }
-            while ptr.add(1) <= end {
-                count -= ((*ptr) & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
+
+            while ptr < end.sub(1) {
+                count -= (*ptr & m).simd_eq(z).to_int();
                 ptr = ptr.add(1);
             }
 
             #[rustfmt::skip]
-            static MASKS: [u32x8; 8] = [
+            static MASKS: [u32x8; 9] = [
                 u32x8::from_array([u32::MAX,u32::MAX,u32::MAX,u32::MAX,u32::MAX,u32::MAX,u32::MAX,u32::MAX,]),
                 u32x8::from_array([0,u32::MAX,u32::MAX,u32::MAX,u32::MAX,u32::MAX,u32::MAX,u32::MAX,]),
                 u32x8::from_array([0,0,u32::MAX,u32::MAX,u32::MAX,u32::MAX,u32::MAX,u32::MAX,]),
@@ -94,10 +90,11 @@ unsafe fn inner_part1(input: &str) -> u64 {
                 u32x8::from_array([0,0,0,0,0,u32::MAX,u32::MAX,u32::MAX,]),
                 u32x8::from_array([0,0,0,0,0,0,u32::MAX,u32::MAX,]),
                 u32x8::from_array([0,0,0,0,0,0,0,u32::MAX,]),
+                u32x8::from_array([0,0,0,0,0,0,0,0]),
             ];
-
-            let b = *ptr | MASKS[end.cast::<u32>().offset_from(ptr.cast::<u32>()) as usize];
-            count -= (b & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
+            let rem = end.cast::<u32>().offset_from(ptr.cast::<u32>()) as usize;
+            let b = *ptr | *MASKS.get_unchecked(rem);
+            count -= (b & m).simd_eq(z).to_int();
         }
 
         ptr = ptr.add(43);
