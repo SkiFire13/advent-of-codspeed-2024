@@ -5,6 +5,7 @@
 #![feature(array_ptr_get)]
 #![feature(core_intrinsics)]
 #![feature(int_roundings)]
+#![feature(fn_align)]
 
 pub mod day1;
 pub mod day2;
