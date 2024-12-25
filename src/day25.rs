@@ -32,14 +32,14 @@ unsafe fn inner_part1(input: &str) -> u64 {
     let input = input.as_bytes();
 
     #[repr(align(64))]
-    struct Aligned([u32; 500]);
+    struct Aligned([u32; 256]);
 
-    static mut PREVS0: Aligned = Aligned([0; 500]);
-    static mut PREVS1: Aligned = Aligned([0; 500]);
+    static mut PREVS0: Aligned = Aligned([0; 256]);
+    static mut PREVS1: Aligned = Aligned([0; 256]);
 
-    let prevs0 = &mut PREVS0;
+    let prevs0 = &mut PREVS0.0;
     let mut prevs0_len = 0;
-    let prevs1 = &mut PREVS1;
+    let prevs1 = &mut PREVS1.0;
     let mut prevs1_len = 0;
 
     let mut count = i32x8::splat(0);
@@ -57,28 +57,24 @@ unsafe fn inner_part1(input: &str) -> u64 {
             (&*prevs1, prevs1_len, &mut *prevs0, &mut prevs0_len)
         };
 
-        *prevsj.0.get_unchecked_mut(*prevsj_len) = m;
+        *prevsj.get_unchecked_mut(*prevsj_len) = m;
         *prevsj_len += 1;
 
         {
-            let mut ptr = prevsi.0.as_ptr().cast::<u32x8>();
-            let end = prevsi.0.as_ptr().add(prevsi_len).cast::<u32x8>();
+            let mut ptr = prevsi.as_ptr().cast::<u32x8>();
+            let end = prevsi.as_ptr().add(prevsi_len).cast::<u32x8>();
             let m = u32x8::splat(m);
             let z = u32x8::splat(0);
 
-            while ptr.add(8) <= end {
+            while ptr <= end.wrapping_sub(4) {
                 count -= ((*ptr.add(0)) & m).simd_eq(z).to_int();
                 count -= ((*ptr.add(1)) & m).simd_eq(z).to_int();
                 count -= ((*ptr.add(2)) & m).simd_eq(z).to_int();
                 count -= ((*ptr.add(3)) & m).simd_eq(z).to_int();
-                count -= ((*ptr.add(4)) & m).simd_eq(z).to_int();
-                count -= ((*ptr.add(5)) & m).simd_eq(z).to_int();
-                count -= ((*ptr.add(6)) & m).simd_eq(z).to_int();
-                count -= ((*ptr.add(7)) & m).simd_eq(z).to_int();
-                ptr = ptr.add(8);
+                ptr = ptr.add(4);
             }
 
-            while ptr < end.sub(1) {
+            while ptr < end.wrapping_sub(1) {
                 count -= (*ptr & m).simd_eq(z).to_int();
                 ptr = ptr.add(1);
             }
@@ -100,7 +96,7 @@ unsafe fn inner_part1(input: &str) -> u64 {
             count -= (b & m).simd_eq(z).to_int();
         }
 
-        ptr = ptr.add(43);
+        ptr = ptr.wrapping_add(43);
         if ptr >= end {
             break;
         }
