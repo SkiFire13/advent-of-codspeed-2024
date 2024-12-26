@@ -67,13 +67,18 @@ unsafe fn inner_part1(input: &str) -> u64 {
 
     let mut count = i32x8::splat(0);
 
-    for i in 0..2 {
-        let bs = *data.list0.as_ptr().cast::<[u32x8; 12]>().add(i);
-        for i in 0..250 {
-            let m = *data.list1.as_ptr().cast::<u32>().add(i);
-            for b in bs {
-                count -= (b & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
-            }
+    let bs = *data.list0.as_ptr().cast::<[u32x8; 12]>().add(0);
+    for i in 0..250 {
+        let m = *data.list1.as_ptr().cast::<u32>().add(i);
+        for b in bs {
+            count -= (b & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
+        }
+    }
+    let bs = *data.list0.as_ptr().cast::<[u32x8; 12]>().add(1);
+    for i in 0..250 {
+        let m = *data.list1.as_ptr().cast::<u32>().add(i);
+        for b in bs {
+            count -= (b & u32x8::splat(m)).simd_eq(u32x8::splat(0)).to_int();
         }
     }
     let bs = *data.list0.as_ptr().cast::<[u32x8; 8]>().add(3);
