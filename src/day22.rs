@@ -26,7 +26,7 @@ pub fn part2(input: &str) -> u64 {
 }
 
 #[inline(always)]
-pub(crate) fn parse8(n: u64) -> u32 {
+fn parse8(n: u64) -> u32 {
     use std::num::Wrapping as W;
 
     let mut n = W(n);
@@ -49,12 +49,11 @@ macro_rules! parse {
         parse8(n)
     }};
 }
-pub(crate) use parse;
 
-pub(crate) const M: u32 = 16777216 - 1;
+const M: u32 = 16777216 - 1;
 
 #[inline(always)]
-pub(crate) fn next(mut n: u32) -> u32 {
+fn next(mut n: u32) -> u32 {
     n ^= n << 6;
     n ^= (n & M) >> 5;
     n ^= n << 11;
