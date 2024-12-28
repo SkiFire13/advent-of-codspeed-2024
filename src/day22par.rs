@@ -6,15 +6,24 @@
 #![feature(array_ptr_get)]
 #![feature(core_intrinsics)]
 #![feature(int_roundings)]
+#![feature(array_chunks)]
 
 use std::arch::x86_64::*;
-use std::mem::MaybeUninit;
 use std::simd::prelude::*;
 
 use rayon::prelude::*;
 
+pub fn run(input: &str) -> i64 {
+    part2(input) as i64
+}
+
 #[inline(always)]
-pub(crate) fn parse8(n: u64) -> u32 {
+pub fn part2(input: &str) -> u64 {
+    unsafe { inner_part2(input) }
+}
+
+#[inline(always)]
+fn parse8(n: u64) -> u32 {
     use std::num::Wrapping as W;
 
     let mut n = W(n);
@@ -37,87 +46,23 @@ macro_rules! parse {
         parse8(n)
     }};
 }
-pub(crate) use parse;
 
-pub(crate) const M: u32 = 16777216 - 1;
-
-#[inline(always)]
-pub(crate) fn next(mut n: u32) -> u32 {
-    n ^= n << 6;
-    n ^= (n & M) >> 5;
-    n ^= n << 11;
-    n
-}
-
-pub fn run(input: &str) -> i64 {
-    part2(input) as i64
-}
-
-#[inline(always)]
-pub fn part2(input: &str) -> u64 {
-    unsafe { inner_part2(input) }
-}
+const NUM_THREADS: usize = 16;
+const NUM_SEQUENCES: usize = 19 * 19 * 19 * 19;
+const NUM_COUNTS: usize = NUM_SEQUENCES * NUM_THREADS + (16 - NUM_SEQUENCES % 16) % 16;
 
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part2(input: &str) -> u64 {
-    let input = input.as_bytes();
-
-    const COUNTS_LEN: usize = (20usize * 20 * 20 * 20).next_multiple_of(64);
-    static mut COUNTS: [u16; 128 * COUNTS_LEN] = [0; 128 * COUNTS_LEN];
-
-    let cores = std::thread::available_parallelism()
-        .unwrap()
-        .get()
-        .clamp(8, 128);
-    let init_len = cores * COUNTS_LEN;
-    COUNTS
-        .as_mut_ptr()
-        .cast::<u8>()
-        .write_bytes(0, 2 * init_len);
-
-    let counts = std::slice::from_raw_parts_mut(COUNTS.as_mut_ptr().cast::<u16>(), init_len);
-
-    macro_rules! handle {
-        ($n:expr, $i:expr, $seen:ident, $count:ident) => {{
-            let mut n = $n;
-
-            let b1 = fastdiv::fastmod_u32_10(n);
-            n = next(n) & M;
-            let b2 = fastdiv::fastmod_u32_10(n);
-            n = next(n) & M;
-            let b3 = fastdiv::fastmod_u32_10(n);
-            n = next(n) & M;
-            let mut b4 = fastdiv::fastmod_u32_10(n);
-
-            let mut d1 = 9 + b1 - b2;
-            let mut d2 = 9 + b2 - b3;
-            let mut d3 = 9 + b3 - b4;
-
-            for _ in 3..2000 {
-                n = next(n) & M;
-                let b5 = fastdiv::fastmod_u32_10(n);
-
-                let d4 = 9 + b4 - b5;
-
-                let idx = (d1 + 20 * (d2 + 20 * (d3 + 20 * d4))) as usize;
-                let s = $seen.get_unchecked_mut(idx);
-                if *s != $i {
-                    *s = $i;
-                    *$count.get_unchecked_mut(idx) += b5 as u16;
-                }
-
-                (d1, d2, d3, b4) = (d2, d3, d4, b5);
-            }
-        }};
-    }
-
-    let mut nums = [MaybeUninit::<u32>::uninit(); 3000];
+    static mut NUMS: [u32; 4096] = [0; 4096];
+    let nums = &mut NUMS;
     let mut nums_len = 0;
 
     let mut ptr = input.as_ptr();
     while ptr <= input.as_ptr().add(input.len() - 8) {
-        *nums.get_unchecked_mut(nums_len).as_mut_ptr() = parse!(ptr);
+        let n = parse!(ptr);
+
+        *nums.get_unchecked_mut(nums_len) = n;
         nums_len += 1;
     }
 
@@ -130,29 +75,50 @@ unsafe fn inner_part2(input: &str) -> u64 {
             .read_unaligned();
         let n = (n & 0x0F0F0F0F0F0F0F0F) & (u64::MAX << (8 * (8 - len)));
         let n = parse8(n);
-        *nums.get_unchecked_mut(nums_len).as_mut_ptr() = n;
+
+        *nums.get_unchecked_mut(nums_len) = n;
         nums_len += 1;
-    }
+    };
 
-    let nums = std::slice::from_raw_parts(nums.as_ptr().cast::<u32>(), nums_len);
+    static mut COUNTS: [u16; NUM_COUNTS] = [0; NUM_COUNTS];
+    COUNTS.fill(0);
 
-    nums.par_chunks((nums.len() + cores - 1) / cores)
-        .zip(counts.par_chunks_mut(COUNTS_LEN))
+    let nums = nums.get_unchecked_mut(..nums_len);
+
+    let chunk_len = nums.len().div_ceil(NUM_THREADS).next_multiple_of(8);
+
+    nums.par_chunks(chunk_len)
+        .zip(COUNTS.par_chunks_mut(NUM_SEQUENCES))
         .with_max_len(1)
         .for_each(|(chunk, counts)| {
-            let mut seen = [0u8; COUNTS_LEN];
-            for (i, &n) in chunk.iter().enumerate() {
-                handle!(n, i as u8 + 1, seen, counts);
+            let mut seen_sequences_bitset = vec![0; NUM_SEQUENCES];
+            let mut chunks = chunk.array_chunks::<8>();
+
+            for (i, c) in chunks.by_ref().enumerate() {
+                if i != 0 {
+                    seen_sequences_bitset.fill(0);
+                }
+                process_part2_totals(&c, counts, &mut seen_sequences_bitset);
+            }
+
+            let rem = chunks.remainder();
+            if !rem.is_empty() {
+                seen_sequences_bitset.fill(0);
+
+                let mut remainder = [0; 8];
+                remainder[..rem.len()].copy_from_slice(rem);
+                process_part2_totals(&remainder, counts, &mut seen_sequences_bitset);
             }
         });
 
     let mut max = u16x16::splat(0);
-    for i in 0..COUNTS_LEN / 16 {
+
+    for i in 0..NUM_SEQUENCES.div_ceil(16) {
         let mut sum = u16x16::splat(0);
-        for j in 0..cores {
+        for j in 0..NUM_THREADS {
             let b = u16x16::from_slice(
-                counts
-                    .get_unchecked(COUNTS_LEN * j + 16 * i..)
+                COUNTS
+                    .get_unchecked(NUM_SEQUENCES * j + 16 * i..)
                     .get_unchecked(..16),
             );
             sum += b;
@@ -163,23 +129,62 @@ unsafe fn inner_part2(input: &str) -> u64 {
     max.reduce_max() as u64
 }
 
-mod fastdiv {
-    #[inline]
-    const fn mul128_u32(lowbits: u64, d: u32) -> u64 {
-        (lowbits as u128 * d as u128 >> 64) as u64
+#[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
+unsafe fn process_part2_totals(
+    secrets: &[u32; 8],
+    sequence_totals: &mut [u16],
+    seen_sequences_bitset: &mut [u8],
+) {
+    let mut v = u32x8::from_array(*secrets);
+    let mut prev = v % u32x8::splat(10);
+    let mut history = u32x8::splat(0);
+
+    // First 3 iterations
+    for _ in 0..3 {
+        v = perform_operation(v);
+        let curr = v % u32x8::splat(10);
+        history = (history << 8) | (u32x8::splat(9) + curr - prev);
+        prev = curr;
     }
 
-    #[inline]
-    const fn compute_m_u32(d: u32) -> u64 {
-        (0xFFFFFFFFFFFFFFFF / d as u64) + 1
-    }
+    for _ in 0..1997 {
+        v = perform_operation(v);
+        let curr = v % u32x8::splat(10);
+        history = (history << 8) | (u32x8::splat(9) + curr - prev);
+        let diff = history_to_diff_sequence(history);
 
-    #[inline]
-    pub const fn fastmod_u32_10(a: u32) -> u32 {
-        const D: u32 = 10;
-        const M: u64 = compute_m_u32(D);
+        for k in 0..8 {
+            let index = diff[k] as usize;
+            let bit_offset = k;
+            let bitset_ptr = seen_sequences_bitset.get_unchecked_mut(index);
+            let bitset = *bitset_ptr;
+            let curr_mask = -((bitset & (1 << bit_offset) == 0) as i32) as u32;
+            *bitset_ptr = bitset | (1u8 << bit_offset);
+            *sequence_totals.get_unchecked_mut(index) += (curr_mask & curr[k]) as u16;
+        }
 
-        let lowbits = M.wrapping_mul(a as u64);
-        mul128_u32(lowbits, D) as u32
+        prev = curr;
     }
+}
+
+#[inline(always)]
+fn perform_operation(mut v: Simd<u32, 8>) -> Simd<u32, 8> {
+    let mask = u32x8::splat((1 << 24) - 1);
+    v ^= v << 6;
+    v &= mask;
+    v ^= v >> 5;
+    v ^= v << 11;
+    v &= mask;
+    v
+}
+
+#[inline(always)]
+unsafe fn history_to_diff_sequence(history: Simd<u32, 8>) -> i32x8 {
+    let diff_intermediate =
+        _mm256_maddubs_epi16(history.into(), i16x16::splat(19 * 256 + 1).into());
+    let diff = _mm256_madd_epi16(
+        diff_intermediate,
+        i32x8::splat(19 * 19 * 256 * 256 + 1).into(),
+    );
+    diff.into()
 }
