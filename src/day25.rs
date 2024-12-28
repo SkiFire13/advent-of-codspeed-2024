@@ -20,11 +20,6 @@ pub fn part1(input: &str) -> u64 {
     unsafe { inner_part1(input) }
 }
 
-#[inline(always)]
-pub fn part2(_input: &str) -> u64 {
-    0
-}
-
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 #[repr(align(64))]

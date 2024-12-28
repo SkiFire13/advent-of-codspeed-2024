@@ -29,8 +29,10 @@ macro_rules! run {
         });
 
         bench(|| advent_of_codspeed_2024::$day::part1(input));
-        bench(|| advent_of_codspeed_2024::$day::part2(input));
+        run!(part2 $day bench(|| advent_of_codspeed_2024::$day::part2(input)));
     }};
+    (part2 day25 $($rest:tt)*) => {};
+    (part2 $day:ident $($rest:tt)*) => { $($rest)* };
 }
 
 fn main() {
