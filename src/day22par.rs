@@ -80,7 +80,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
         nums_len += 1;
     };
 
-    static mut COUNTS: [u16; NUM_COUNTS] = [0; NUM_COUNTS];
+    static mut COUNTS: [u8; NUM_COUNTS] = [0; NUM_COUNTS];
     COUNTS.fill(0);
 
     let nums = nums.get_unchecked_mut(..nums_len);
@@ -116,12 +116,12 @@ unsafe fn inner_part2(input: &str) -> u64 {
     for i in 0..NUM_SEQUENCES.div_ceil(16) {
         let mut sum = u16x16::splat(0);
         for j in 0..NUM_THREADS {
-            let b = u16x16::from_slice(
+            let b = u8x16::from_slice(
                 COUNTS
                     .get_unchecked(NUM_SEQUENCES * j + 16 * i..)
                     .get_unchecked(..16),
             );
-            sum += b;
+            sum += b.cast::<u16>();
         }
         max = max.simd_max(sum);
     }
@@ -132,7 +132,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 unsafe fn process_part2_totals(
     secrets: &[u32; 8],
-    sequence_totals: &mut [u16],
+    sequence_totals: &mut [u8],
     seen_sequences_bitset: &mut [u8],
 ) {
     let mut v = u32x8::from_array(*secrets);
@@ -160,7 +160,7 @@ unsafe fn process_part2_totals(
             let bitset = *bitset_ptr;
             let curr_mask = -((bitset & (1 << bit_offset) == 0) as i32) as u32;
             *bitset_ptr = bitset | (1u8 << bit_offset);
-            *sequence_totals.get_unchecked_mut(index) += (curr_mask & curr[k]) as u16;
+            *sequence_totals.get_unchecked_mut(index) += (curr_mask & curr[k]) as u8;
         }
 
         prev = curr;
