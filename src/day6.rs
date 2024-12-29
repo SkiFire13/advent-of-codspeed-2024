@@ -36,86 +36,36 @@ unsafe fn inner_part1(input: &str) -> u32 {
     let mut pos = start;
     seen[pos / 64] |= 1 << (pos % 64);
     seen_count += 1;
+
+    macro_rules! move_and_check {
+        ($next:ident: d[$d:expr] check[$check:expr]) => {
+            loop {
+                let $next = pos.wrapping_add($d);
+                if $check {
+                    return seen_count;
+                }
+
+                if *input.get_unchecked($next) == b'#' {
+                    break;
+                }
+
+                pos = $next;
+
+                let seen_elem = seen.get_unchecked_mut(pos / 64);
+                let seen_mask = 1 << (pos % 64);
+                if *seen_elem & seen_mask == 0 {
+                    *seen_elem |= seen_mask;
+                    seen_count += 1;
+                }
+            }
+        };
+    }
+
     loop {
-        loop {
-            let next = pos.wrapping_add(-131isize as usize);
-            if next >= 131 * 130 {
-                return seen_count;
-            }
-
-            if *input.get_unchecked(next) == b'#' {
-                break;
-            }
-
-            pos = next;
-
-            let seen_elem = seen.get_unchecked_mut(pos / 64);
-            let seen_mask = 1 << (pos % 64);
-            if *seen_elem & seen_mask == 0 {
-                *seen_elem |= seen_mask;
-                seen_count += 1;
-            }
-        }
-
-        loop {
-            let next = pos.wrapping_add(1 as usize);
-            if next % 131 == 130 {
-                return seen_count;
-            }
-
-            if *input.get_unchecked(next) == b'#' {
-                break;
-            }
-
-            pos = next;
-
-            let seen_elem = seen.get_unchecked_mut(pos / 64);
-            let seen_mask = 1 << (pos % 64);
-            if *seen_elem & seen_mask == 0 {
-                *seen_elem |= seen_mask;
-                seen_count += 1;
-            }
-        }
-
-        loop {
-            let next = pos.wrapping_add(131 as usize);
-            if next >= 131 * 130 {
-                return seen_count;
-            }
-
-            if *input.get_unchecked(next) == b'#' {
-                break;
-            }
-
-            pos = next;
-
-            let seen_elem = seen.get_unchecked_mut(pos / 64);
-            let seen_mask = 1 << (pos % 64);
-            if *seen_elem & seen_mask == 0 {
-                *seen_elem |= seen_mask;
-                seen_count += 1;
-            }
-        }
-
-        loop {
-            let next = pos.wrapping_add(-1isize as usize);
-            if next % 131 == 130 {
-                return seen_count;
-            }
-
-            if *input.get_unchecked(next) == b'#' {
-                break;
-            }
-
-            pos = next;
-
-            let seen_elem = seen.get_unchecked_mut(pos / 64);
-            let seen_mask = 1 << (pos % 64);
-            if *seen_elem & seen_mask == 0 {
-                *seen_elem |= seen_mask;
-                seen_count += 1;
-            }
-        }
+        move_and_check!(next: d[-131isize as usize] check[next >= 131 * 130]);
+        move_and_check!(next: d[1 as usize]         check[next % 131 == 130]);
+        move_and_check!(next: d[131isize as usize]  check[next >= 131 * 130]);
+        move_and_check!(next: d[-1isize as usize]   check[next % 131 == 130]);
     }
 }
 
@@ -134,10 +84,22 @@ unsafe fn inner_part2(input: &str) -> u32 {
     let mut rocksy_id = const { [[0; 16]; 130] };
     let mut rocksy_len = const { [0; 130] };
 
-    // Parse the input into a list of rocks and the start position
+    macro_rules! add_rock {
+        ($rocks:ident, $rocks_id:ident, $rocks_len:ident, $main:ident, $cross:ident) => {{
+            *$rocks.get_unchecked_mut(rocks_len) = $main as u8;
+            let len = $rocks_len.get_unchecked_mut($main as usize);
+            let ids = $rocks_id.get_unchecked_mut($main as usize);
+            *ids.get_unchecked_mut(*len) = rocks_len as u16;
+            *len += 1;
+        }};
+    }
+
     let mut offset = 0;
-    while start == 0 {
-        let block = u8x32::from_slice(input.get_unchecked(offset..offset + 32));
+    let mut block = u8x32::from_slice(input.get_unchecked(..32));
+    loop {
+        if let Some(pos) = block.simd_eq(u8x32::splat(b'^')).first_set() {
+            start = offset + pos;
+        }
 
         let mut rocks_mask = block.simd_eq(u8x32::splat(b'#')).to_bitmask();
         while rocks_mask != 0 {
@@ -146,87 +108,19 @@ unsafe fn inner_part2(input: &str) -> u32 {
             let pos = offset + pos as usize;
             let x = pos % 131;
             let y = pos / 131;
-
-            *rocks_x.get_unchecked_mut(rocks_len) = x as u8;
-            *rocks_y.get_unchecked_mut(rocks_len) = y as u8;
-
-            let x_len = rocksx_len.get_unchecked_mut(x as usize);
-            *rocksx_id
-                .get_unchecked_mut(x as usize)
-                .get_unchecked_mut(*x_len) = rocks_len as u16;
-            *x_len += 1;
-
-            let y_len = rocksy_len.get_unchecked_mut(y as usize);
-            *rocksy_id
-                .get_unchecked_mut(y as usize)
-                .get_unchecked_mut(*y_len) = rocks_len as u16;
-            *y_len += 1;
-
-            rocks_len += 1;
-        }
-
-        if let Some(start_pos) = block.simd_eq(u8x32::splat(b'^')).first_set() {
-            start = (offset + start_pos) as u32;
-        }
-
-        offset += 32;
-    }
-    while offset + 32 <= input.len() {
-        let block = u8x32::from_slice(input.get_unchecked(offset..offset + 32));
-
-        let mut rocks_mask = block.simd_eq(u8x32::splat(b'#')).to_bitmask();
-        while rocks_mask != 0 {
-            let pos = rocks_mask.trailing_zeros();
-            rocks_mask &= !(1 << pos);
-            let pos = offset + pos as usize;
-            let x = pos % 131;
-            let y = pos / 131;
-
-            *rocks_x.get_unchecked_mut(rocks_len) = x as u8;
-            *rocks_y.get_unchecked_mut(rocks_len) = y as u8;
-
-            let x_len = rocksx_len.get_unchecked_mut(x as usize);
-            *rocksx_id
-                .get_unchecked_mut(x as usize)
-                .get_unchecked_mut(*x_len) = rocks_len as u16;
-            *x_len += 1;
-
-            let y_len = rocksy_len.get_unchecked_mut(y as usize);
-            *rocksy_id
-                .get_unchecked_mut(y as usize)
-                .get_unchecked_mut(*y_len) = rocks_len as u16;
-            *y_len += 1;
-
+            add_rock!(rocks_x, rocksx_id, rocksx_len, x, y);
+            add_rock!(rocks_y, rocksy_id, rocksy_len, y, x);
             rocks_len += 1;
         }
 
         offset += 32;
-    }
-    while offset < input.len() {
-        if *input.get_unchecked(offset) == b'#' {
-            let pos = offset;
-            let x = pos % 131;
-            let y = pos / 131;
-
-            *rocks_x.get_unchecked_mut(rocks_len) = x as u8;
-            *rocks_y.get_unchecked_mut(rocks_len) = y as u8;
-
-            let x_len = rocksx_len.get_unchecked_mut(x as usize);
-            *rocksx_id
-                .get_unchecked_mut(x as usize)
-                .get_unchecked_mut(*x_len) = rocks_len as u16;
-            *x_len += 1;
-
-            let y_len = rocksy_len.get_unchecked_mut(y as usize);
-            *rocksy_id
-                .get_unchecked_mut(y as usize)
-                .get_unchecked_mut(*y_len) = rocks_len as u16;
-            *y_len += 1;
-
-            rocks_len += 1;
+        if offset + 32 <= 130 * 131 {
+            block = u8x32::from_slice(input.get_unchecked(offset..offset + 32));
+        } else if offset < 130 * 131 {
+            block = u8x32::load_or_default(input.get_unchecked((130 * 131) & !31..130 * 131));
+        } else {
+            break;
         }
-
-        offset += 1;
     }
 
     // A rock representing going out of bounds
