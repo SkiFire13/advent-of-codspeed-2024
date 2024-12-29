@@ -175,8 +175,8 @@ unsafe fn inner_part1(input: &str) -> u32 {
 
     let mut tot = 0;
     let mut buf = [0; 24];
-    let mut buf_len = 0;
-    let mut mask = 0u128;
+    let mut buf_len;
+    let mut mask;
 
     'outer: while iter.len() >= 72 {
         buf_len = 0;
@@ -209,6 +209,8 @@ unsafe fn inner_part1(input: &str) -> u32 {
         tot += *buf.get_unchecked(buf_len / 2) as u32;
     }
 
+    buf_len = 0;
+    mask = 0;
     'outer: while !iter.as_slice().is_empty() {
         let c = iter.as_slice();
 
