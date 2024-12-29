@@ -255,111 +255,53 @@ unsafe fn inner_part2(input: &str) -> u32 {
     let mut seen = [0u64; (130 * 131 + 63) / 64];
     seen[pos % 64] |= 1 << (pos % 64);
 
-    macro_rules! check_loop {
-        ($dir:expr) => {
-            check_loop(
-                &rocks_x,
-                &rocks_y,
-                &rocksx_id,
-                &rocksx_len,
-                &rocksy_id,
-                &rocksy_len,
-                rocks_len,
-                move_map,
-                pos,
-                $dir,
-            )
+    let mut next;
+
+    macro_rules! move_and_check {
+        ($dpos:expr, $cond:expr, $dir:ident) => {
+            loop {
+                next = pos.wrapping_add($dpos);
+                if $cond {
+                    return count;
+                }
+
+                if *input.get_unchecked(next) == b'#' {
+                    break;
+                }
+
+                pos = next;
+
+                let seen_elem = seen.get_unchecked_mut(pos / 64);
+                let seen_mask = 1 << (pos % 64);
+                if *seen_elem & seen_mask == 0 {
+                    *seen_elem |= seen_mask;
+
+                    let is_loop = check_loop(
+                        &rocks_x,
+                        &rocks_y,
+                        &rocksx_id,
+                        &rocksx_len,
+                        &rocksy_id,
+                        &rocksy_len,
+                        rocks_len,
+                        move_map,
+                        pos,
+                        $dir,
+                    );
+
+                    if is_loop {
+                        count += 1;
+                    }
+                }
+            }
         };
     }
 
     loop {
-        loop {
-            let next = pos.wrapping_add(-131isize as usize);
-            if next >= 131 * 130 {
-                return count;
-            }
-
-            if *input.get_unchecked(next) == b'#' {
-                break;
-            }
-
-            pos = next;
-
-            let seen_elem = seen.get_unchecked_mut(pos / 64);
-            let seen_mask = 1 << (pos % 64);
-            if *seen_elem & seen_mask == 0 {
-                *seen_elem |= seen_mask;
-                if check_loop!(BOT_M) {
-                    count += 1;
-                }
-            }
-        }
-
-        loop {
-            let next = pos.wrapping_add(1 as usize);
-            if next % 131 == 130 {
-                return count;
-            }
-
-            if *input.get_unchecked(next) == b'#' {
-                break;
-            }
-
-            pos = next;
-
-            let seen_elem = seen.get_unchecked_mut(pos / 64);
-            let seen_mask = 1 << (pos % 64);
-            if *seen_elem & seen_mask == 0 {
-                *seen_elem |= seen_mask;
-                if check_loop!(LEFT_M) {
-                    count += 1;
-                }
-            }
-        }
-
-        loop {
-            let next = pos.wrapping_add(131 as usize);
-            if next >= 131 * 130 {
-                return count;
-            }
-
-            if *input.get_unchecked(next) == b'#' {
-                break;
-            }
-
-            pos = next;
-
-            let seen_elem = seen.get_unchecked_mut(pos / 64);
-            let seen_mask = 1 << (pos % 64);
-            if *seen_elem & seen_mask == 0 {
-                *seen_elem |= seen_mask;
-                if check_loop!(TOP_M) {
-                    count += 1;
-                }
-            }
-        }
-
-        loop {
-            let next = pos.wrapping_add(-1isize as usize);
-            if next % 131 == 130 {
-                return count;
-            }
-
-            if *input.get_unchecked(next) == b'#' {
-                break;
-            }
-
-            pos = next;
-
-            let seen_elem = seen.get_unchecked_mut(pos / 64);
-            let seen_mask = 1 << (pos % 64);
-            if *seen_elem & seen_mask == 0 {
-                *seen_elem |= seen_mask;
-                if check_loop!(RIGHT_M) {
-                    count += 1;
-                }
-            }
-        }
+        move_and_check!(-131isize as usize, next >= 131 * 130, BOT_M);
+        move_and_check!(1, next % 131 == 130, LEFT_M);
+        move_and_check!(131, next >= 131 * 130, TOP_M);
+        move_and_check!(-1isize as usize, next % 131 == 130, RIGHT_M);
     }
 
     #[inline(always)]
