@@ -10,19 +10,15 @@
 use std::mem::transmute;
 use std::simd::prelude::*;
 
+use rayon::prelude::*;
+
 pub fn run(input: &str) -> i64 {
     part2(input) as i64
 }
 
 #[inline(always)]
-pub fn part1(input: &str) -> u64 {
-    unsafe { inner_part1(input) }
-}
-
-#[inline(always)]
 pub fn part2(input: &str) -> u64 {
     unsafe { inner_part2(input) }
-    // super::day20par::part2(input)
 }
 
 const LEFT: usize = -1isize as usize;
@@ -43,78 +39,12 @@ unsafe fn find_start(input: &[u8]) -> usize {
     }
 }
 
-unsafe fn part1_rec<const DIR: usize>(
-    input: &[u8; 141 * 142],
-    seen: &mut [u16; 142 * 143],
-    curr: usize,
-    mut n: u16,
-    mut count: u64,
-) -> u64 {
-    macro_rules! count {
-        ($($d:ident),*) => {$(
-            if $d != -(DIR as isize) as usize {
-                if *seen.get_unchecked((curr + 142).wrapping_add($d).wrapping_add($d)) >= n + 101 {
-                    count += 1;
-                }
-            }
-        )*};
-    }
-
-    count!(LEFT, RIGHT, UP, DOWN);
-
-    *seen.get_unchecked_mut(curr + 142) = n;
-    n -= 1;
-
-    macro_rules! next {
-        ($($d:ident),*) => {$(
-            if $d != -(DIR as isize) as usize {
-                let cand = curr.wrapping_add($d);
-                if *input.get_unchecked(cand) != b'#' {
-                    // TODO: use become
-                    return part1_rec::<$d>(input, seen, cand, n, count)
-                }
-            }
-        )*};
-    }
-
-    next!(LEFT, RIGHT, UP, DOWN);
-
-    count
-}
-
-#[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
-#[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
-unsafe fn inner_part1(input: &str) -> u64 {
-    let input: &[u8; 141 * 142] = input.as_bytes().try_into().unwrap_unchecked();
-
-    let s = find_start(input);
-
-    let mut seen = [0; 142 * 143];
-    let mut n = u16::MAX - 102;
-    *seen.get_unchecked_mut(s + 142) = n;
-    n -= 1;
-
-    macro_rules! next {
-        ($($d:ident),*) => {$(
-            let cand = s.wrapping_add($d);
-            if *input.get_unchecked(cand) != b'#' {
-                return part1_rec::<$d>(input, &mut seen, s, n, 0);
-            }
-        )*};
-    }
-
-    next!(LEFT, RIGHT, UP, DOWN);
-
-    std::hint::unreachable_unchecked()
-}
-
 const SLINE: usize = 139 + 28;
 const SUP: usize = -(SLINE as isize) as usize;
 const SDOWN: usize = SLINE;
 const SLEFT: usize = LEFT;
 const SRIGHT: usize = RIGHT;
 
-#[allow(unused)]
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part2(input: &str) -> u64 {
@@ -124,10 +54,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
         icurr: usize,
         scurr: usize,
         mut n: i16,
-        count: &mut i32x16,
-    ) -> u64 {
-        *count += sum_cheats(scurr, n, seen);
-
+    ) {
         *seen.get_unchecked_mut(scurr) = n;
         n += 1;
 
@@ -138,15 +65,14 @@ unsafe fn inner_part2(input: &str) -> u64 {
                     let scand = scurr.wrapping_add($d2);
                     if *input.get_unchecked(icand) != b'#' {
                         // TODO: use become
-                        return part2_rec::<$d1, $d2>(input, seen, icand, scand, n, count);
+                        part2_rec::<$d1, $d2>(input, seen, icand, scand, n);
+                        return
                     }
                 }
             )*};
         }
 
         next!(LEFT SLEFT, RIGHT SRIGHT, UP SUP, DOWN SDOWN);
-
-        -count.reduce_sum() as u64
     }
 
     let input: &[u8; 141 * 142] = input.as_bytes().try_into().unwrap_unchecked();
@@ -161,13 +87,42 @@ unsafe fn inner_part2(input: &str) -> u64 {
         ($($d1:ident $d2:ident),*) => {$(
             let icand = icurr.wrapping_add($d1);
             if *input.get_unchecked(icand) != b'#' {
-                return part2_rec::<$d1, $d2>(input, &mut seen, icurr, scurr, n, &mut i32x16::splat(0));
+                part2_rec::<$d1, $d2>(input, &mut seen, icurr, scurr, n);
             }
         )*};
     }
 
     next!(LEFT SLEFT, RIGHT SRIGHT, UP SUP, DOWN SDOWN);
-    std::hint::unreachable_unchecked();
+
+    const THREADS: usize = 16;
+    const BASE: usize = 143;
+    const REAL_LEN: usize = 141 * 142 - 2 * BASE + 8;
+    const STEP: usize = REAL_LEN / THREADS;
+    const { assert!(REAL_LEN % THREADS == 0) }
+
+    (0..THREADS)
+        .into_par_iter()
+        .with_max_len(1)
+        .map(|thread| {
+            let start = BASE + thread * STEP;
+            let end = start + STEP;
+
+            let mut count = i32x16::splat(0);
+
+            for icurr in start..end {
+                if *input.get_unchecked(icurr) == b'#' || *input.get_unchecked(icurr) == b'\n' {
+                    continue;
+                }
+
+                let scurr = 20 + SLINE * (icurr / 142 - 1 + 20) + (icurr % 142 - 1);
+                let n = *seen.get_unchecked(scurr);
+
+                count += sum_cheats(scurr, n, &seen);
+            }
+
+            -count.reduce_sum() as u64
+        })
+        .sum()
 }
 
 #[inline(always)]
@@ -216,14 +171,27 @@ unsafe fn sum_cheats(scurr: usize, n: i16, seen: &[i16; 20 + (139 + 40) * SLINE]
     const DISTANCES: [i16x16; 75] = unsafe { transmute(offset_distances().1) };
 
     let mut count = i16x16::splat(0);
-    for i in 0..75 {
-        let offset = OFFSETS[i];
-        let dists = DISTANCES[i];
 
-        let base = scurr.wrapping_add(offset);
-        let s = seen.get_unchecked(base..base + 16);
-        let m = (i16x16::splat(n) - dists).simd_gt(i16x16::from_slice(s));
-        count += m.to_int();
+    macro_rules! handle {
+        ($i:expr) => {{
+            let offset = OFFSETS[$i];
+            let dists = DISTANCES[$i];
+            let base = scurr.wrapping_add(offset);
+            let s = seen.get_unchecked(base..base + 16);
+            let m = (i16x16::splat(n) - dists).simd_gt(i16x16::from_slice(s));
+            count += m.to_int();
+        }};
     }
+
+    for i in 0..25 {
+        handle!(i)
+    }
+    for i in 25..50 {
+        handle!(i)
+    }
+    for i in 50..75 {
+        handle!(i)
+    }
+
     count.cast::<i32>()
 }
