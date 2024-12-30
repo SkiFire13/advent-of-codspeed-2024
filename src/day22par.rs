@@ -83,31 +83,33 @@ unsafe fn inner_part2(input: &str) -> u64 {
     static mut COUNTS: [u8; NUM_COUNTS] = [0; NUM_COUNTS];
     COUNTS.fill(0);
 
+    const SEEN_CHUNK: usize = NUM_SEQUENCES.next_multiple_of(128);
+    static mut SEEN: [u8; SEEN_CHUNK * NUM_THREADS] = [0; SEEN_CHUNK * NUM_THREADS];
+
     let nums = nums.get_unchecked_mut(..nums_len);
 
     let chunk_len = nums.len().div_ceil(NUM_THREADS).next_multiple_of(8);
 
     nums.par_chunks(chunk_len)
         .zip(COUNTS.par_chunks_mut(NUM_SEQUENCES))
+        .zip(SEEN.par_chunks_mut(SEEN_CHUNK))
         .with_max_len(1)
-        .for_each(|(chunk, counts)| {
-            let mut seen_sequences_bitset = vec![0; NUM_SEQUENCES];
+        .for_each(|((chunk, counts), seen)| {
+            let seen = seen.get_unchecked_mut(..NUM_SEQUENCES);
             let mut chunks = chunk.array_chunks::<8>();
 
-            for (i, c) in chunks.by_ref().enumerate() {
-                if i != 0 {
-                    seen_sequences_bitset.fill(0);
-                }
-                process_part2_totals(&c, counts, &mut seen_sequences_bitset);
+            for c in chunks.by_ref() {
+                seen.fill(0);
+                process_part2_totals(&c, counts, seen);
             }
 
             let rem = chunks.remainder();
             if !rem.is_empty() {
-                seen_sequences_bitset.fill(0);
+                seen.fill(0);
 
                 let mut remainder = [0; 8];
                 remainder[..rem.len()].copy_from_slice(rem);
-                process_part2_totals(&remainder, counts, &mut seen_sequences_bitset);
+                process_part2_totals(&remainder, counts, seen);
             }
         });
 
