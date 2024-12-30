@@ -11,7 +11,7 @@ use std::mem::transmute;
 use std::simd::prelude::*;
 
 pub fn run(input: &str) -> i64 {
-    part2(input) as i64
+    part1(input) as i64
 }
 
 #[inline(always)]
@@ -58,50 +58,69 @@ unsafe fn find_start_end(input: &[u8]) -> (usize, usize) {
     (s, e)
 }
 
+unsafe fn part1_rec<const DIR: usize>(
+    input: &[u8; 141 * 142],
+    seen: &mut [u16; 142 * 143],
+    curr: usize,
+    mut n: u16,
+    mut count: u64,
+) -> u64 {
+    macro_rules! count {
+        ($($d:ident),*) => {$(
+            if $d != -(DIR as isize) as usize {
+                if *seen.get_unchecked((curr + 142).wrapping_add($d).wrapping_add($d)) >= n + 101 {
+                    count += 1;
+                }
+            }
+        )*};
+    }
+
+    count!(LEFT, RIGHT, UP, DOWN);
+
+    *seen.get_unchecked_mut(curr + 142) = n;
+    n -= 1;
+
+    macro_rules! next {
+        ($($d:ident),*) => {$(
+            if $d != -(DIR as isize) as usize {
+                let cand = curr.wrapping_add($d);
+                if *input.get_unchecked(cand) != b'#' {
+                    // TODO: use become
+                    return part1_rec::<$d>(input, seen, cand, n, count)
+                }
+            }
+        )*};
+    }
+
+    next!(LEFT, RIGHT, UP, DOWN);
+
+    count
+}
+
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part1(input: &str) -> u64 {
-    #[inline(always)]
-    unsafe fn next(input: &[u8], prev: usize, curr: usize) -> usize {
-        let mut next = curr.wrapping_add(LEFT);
-        for d in [RIGHT, UP, DOWN] {
-            let cand = curr.wrapping_add(d);
-            if *input.get_unchecked(cand) != b'#' && cand != prev {
-                next = curr.wrapping_add(d);
-            }
-        }
-        next
-    }
+    let input: &[u8; 141 * 142] = input.as_bytes().try_into().unwrap_unchecked();
 
-    let input = input.as_bytes();
-
-    let (s, e) = find_start_end(input);
-
-    let mut count = 0;
-    let mut prev = 0;
-    let mut curr = s;
-    let mut n = u16::MAX - 102;
+    let (s, _e) = find_start_end(input);
 
     let mut seen = [0; 142 * 143];
+    let mut n = u16::MAX - 102;
+    *seen.get_unchecked_mut(s + 142) = n;
+    n -= 1;
 
-    loop {
-        *seen.get_unchecked_mut(curr + 142) = n;
-
-        (prev, curr) = (curr, next(input, prev, curr));
-        n -= 1;
-
-        for d in [LEFT, RIGHT, UP, DOWN] {
-            if *seen.get_unchecked((curr + 142).wrapping_add(d).wrapping_add(d)) >= n + 102 {
-                count += 1;
+    macro_rules! next {
+        ($($d:ident),*) => {$(
+            let cand = s.wrapping_add($d);
+            if *input.get_unchecked(cand) != b'#' {
+                return part1_rec::<$d>(input, &mut seen, cand, n, 0);
             }
-        }
-
-        if curr == e {
-            break;
-        }
+        )*};
     }
 
-    count
+    next!(LEFT, RIGHT, UP, DOWN);
+
+    std::hint::unreachable_unchecked()
 }
 
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
