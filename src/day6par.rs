@@ -6,8 +6,6 @@
 
 use std::simd::prelude::*;
 
-use rayon::prelude::*;
-
 pub fn run(input: &str) -> i64 {
     part2(input) as i64
 }
@@ -238,38 +236,40 @@ unsafe fn inner_part2(input: &str) -> u32 {
         move_and_check!(-1isize as usize, next % 131 == 130, RIGHT_M);
     }
 
-    return TO_CHECK
-        .get_unchecked(..to_check_len)
-        .par_chunks(to_check_len.div_ceil(16))
-        .with_max_len(1)
-        .map(|chunk| {
-            let mut move_map_raw = move_map_raw;
-            let move_map = &mut move_map_raw[..(out_rock_idx + 1) << 2];
+    let sum = std::sync::atomic::AtomicU32::new(0);
+    let to_check = TO_CHECK.get_unchecked(..to_check_len);
+    let chunk_len = to_check_len.div_ceil(par::NUM_THREADS);
+    par::par(|idx| {
+        let chunk = to_check.get_unchecked(chunk_len * idx..);
+        let chunk = chunk.get_unchecked(..std::cmp::min(chunk.len(), chunk_len));
 
-            let mut count = 0;
-            for &mov_pos in chunk {
-                let (pos, dir) = (mov_pos >> 2, mov_pos & 0b11);
+        let mut move_map_raw = move_map_raw;
+        let move_map = &mut move_map_raw[..(out_rock_idx + 1) << 2];
 
-                let is_loop = check_loop(
-                    &rocks_x,
-                    &rocks_y,
-                    &rocksx_id,
-                    &rocksx_len,
-                    &rocksy_id,
-                    &rocksy_len,
-                    rocks_len,
-                    move_map,
-                    pos,
-                    dir,
-                );
+        let mut count = 0;
+        for &mov_pos in chunk {
+            let (pos, dir) = (mov_pos >> 2, mov_pos & 0b11);
 
-                if is_loop {
-                    count += 1;
-                }
+            let is_loop = check_loop(
+                &rocks_x,
+                &rocks_y,
+                &rocksx_id,
+                &rocksx_len,
+                &rocksy_id,
+                &rocksy_len,
+                rocks_len,
+                move_map,
+                pos,
+                dir,
+            );
+
+            if is_loop {
+                count += 1;
             }
-            count
-        })
-        .sum();
+        }
+        sum.fetch_add(count, std::sync::atomic::Ordering::Relaxed);
+    });
+    return sum.into_inner();
 
     #[inline(always)]
     unsafe fn check_loop(
@@ -528,5 +528,74 @@ unsafe fn inner_part2(input: &str) -> u32 {
         }
 
         cycle
+    }
+}
+
+mod par {
+    use std::sync::atomic::{AtomicPtr, Ordering};
+
+    pub const NUM_THREADS: usize = 16;
+
+    #[repr(align(64))]
+    struct CachePadded<T>(T);
+
+    static mut INIT: bool = false;
+
+    static WORK: [CachePadded<AtomicPtr<()>>; NUM_THREADS] =
+        [const { CachePadded(AtomicPtr::new(std::ptr::null_mut())) }; NUM_THREADS];
+
+    #[inline(always)]
+    fn submit<F: Fn(usize)>(f: &F) {
+        unsafe {
+            if !INIT {
+                INIT = true;
+                for idx in 1..NUM_THREADS {
+                    thread_run(idx, f);
+                }
+            }
+        }
+
+        for i in 1..NUM_THREADS {
+            WORK[i].0.store(f as *const F as *mut (), Ordering::Release);
+        }
+    }
+
+    #[inline(always)]
+    fn wait() {
+        for i in 1..NUM_THREADS {
+            loop {
+                let ptr = WORK[i].0.load(Ordering::Acquire);
+                if ptr.is_null() {
+                    break;
+                }
+                for _ in 0..500 {
+                    std::hint::spin_loop();
+                }
+            }
+        }
+    }
+
+    fn thread_run<F: Fn(usize)>(idx: usize, _f: &F) {
+        _ = std::thread::Builder::new().spawn(move || unsafe {
+            let work = WORK.get_unchecked(idx);
+
+            loop {
+                let data = work.0.load(Ordering::Acquire);
+                if !data.is_null() {
+                    (&*data.cast::<F>())(idx);
+                    work.0.store(std::ptr::null_mut(), Ordering::Release);
+                } else {
+                    for _ in 0..500 {
+                        std::hint::spin_loop();
+                    }
+                }
+            }
+        });
+    }
+
+    pub fn par<F: Fn(usize)>(f: F) {
+        submit(&f);
+        f(0);
+        wait();
     }
 }
