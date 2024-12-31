@@ -98,9 +98,7 @@ macro_rules! parse {
     }};
 }
 
-const NUM_THREADS: usize = 16;
 const NUM_SEQUENCES: usize = 19 * 19 * 19 * 19;
-const NUM_COUNTS: usize = NUM_SEQUENCES * NUM_THREADS + (16 - NUM_SEQUENCES % 16) % 16;
 
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
@@ -131,20 +129,22 @@ unsafe fn inner_part2(input: &str) -> u64 {
         nums_len += 1;
     };
 
+    const NUM_COUNTS: usize = NUM_SEQUENCES * par::NUM_THREADS + (16 - NUM_SEQUENCES % 16) % 16;
     static mut COUNTS: [u8; NUM_COUNTS] = [0; NUM_COUNTS];
     COUNTS.fill(0);
 
     let nums = nums.get_unchecked_mut(..nums_len);
 
-    let chunk_len = nums.len().div_ceil(NUM_THREADS).next_multiple_of(8);
+    let chunk_len = nums.len().div_ceil(par::NUM_THREADS).next_multiple_of(8);
 
     par::par(|idx| {
+        // TODO: distribute values more evenly
+        if chunk_len * idx >= nums.len() {
+            return;
+        }
         let chunk = nums.get_unchecked(chunk_len * idx..);
         let chunk = chunk.get_unchecked(..std::cmp::min(chunk.len(), chunk_len));
-        let counts = &mut *(&raw mut COUNTS)
-            .cast::<u8>()
-            .add(idx * NUM_SEQUENCES)
-            .cast::<[u8; NUM_SEQUENCES]>();
+        let counts = &mut *(&raw mut COUNTS).cast::<[u8; NUM_SEQUENCES]>().add(idx);
 
         for &c in chunk {
             let idx = *NUM_TO_INDEX.get_unchecked(c as usize) as usize;
@@ -181,7 +181,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
     for i in 0..NUM_SEQUENCES.div_ceil(16) {
         let mut sum = u16x16::splat(0);
-        for j in 0..NUM_THREADS {
+        for j in 0..par::NUM_THREADS {
             let b = u8x16::from_slice(
                 COUNTS
                     .get_unchecked(NUM_SEQUENCES * j + 16 * i..)
