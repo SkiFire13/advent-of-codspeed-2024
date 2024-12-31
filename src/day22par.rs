@@ -22,7 +22,9 @@ unsafe fn build_tables() {
     let mut i = 0;
     let mut n = 1;
 
-    static mut DIFF_TO_LAST_SEEN: [u32; 19 * 19 * 19 * 19] = [0; 19 * 19 * 19 * 19];
+    let mut next_diff_id = 0;
+    static mut DIFF_IDS: [u16; 19 * 19 * 19 * 19] = [u16::MAX; 19 * 19 * 19 * 19];
+    static mut DIFF_TO_LAST_SEEN: [u32; 40951] = [0; 40951];
 
     while i < LEN {
         if i < (1 << 24) - 1 {
@@ -41,9 +43,15 @@ unsafe fn build_tables() {
             let diff = [9 + d2 - d1, 9 + d3 - d2, 9 + d4 - d3, 9 + d5 - d4]
                 .into_iter()
                 .fold(0, |a, d| 19 * a + d);
-            DIFFS[i] = diff as u16;
-            LAST_SEEN[i] = DIFF_TO_LAST_SEEN[diff];
-            DIFF_TO_LAST_SEEN[diff] = i as u32;
+            let mut diff_id = DIFF_IDS[diff];
+            if diff_id == u16::MAX {
+                diff_id = next_diff_id;
+                DIFF_IDS[diff] = next_diff_id;
+                next_diff_id += 1;
+            }
+            DIFFS[i] = diff_id;
+            LAST_SEEN[i] = DIFF_TO_LAST_SEEN[diff_id as usize];
+            DIFF_TO_LAST_SEEN[diff_id as usize] = i as u32;
         }
 
         n ^= (n << 6) & ((1 << 24) - 1);
