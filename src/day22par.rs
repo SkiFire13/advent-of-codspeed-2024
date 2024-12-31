@@ -135,15 +135,19 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
     let nums = nums.get_unchecked_mut(..nums_len);
 
-    let chunk_len = nums.len().div_ceil(par::NUM_THREADS).next_multiple_of(8);
+    let mut chunk_lens = [nums.len() / 8 / par::NUM_THREADS * 8; par::NUM_THREADS];
+    for i in 0..nums.len() / 8 % par::NUM_THREADS {
+        chunk_lens[i] += 8;
+    }
+    chunk_lens[par::NUM_THREADS - 1] += nums.len() % 8;
+
+    let mut chunk_pos = [0; par::NUM_THREADS + 1];
+    for i in 0..par::NUM_THREADS {
+        chunk_pos[i + 1] = chunk_pos[i] + chunk_lens[i];
+    }
 
     par::par(|idx| {
-        // TODO: distribute values more evenly
-        if chunk_len * idx >= nums.len() {
-            return;
-        }
-        let chunk = nums.get_unchecked(chunk_len * idx..);
-        let chunk = chunk.get_unchecked(..std::cmp::min(chunk.len(), chunk_len));
+        let chunk = nums.get_unchecked(chunk_pos[idx]..chunk_pos[idx + 1]);
         let counts = &mut *(&raw mut COUNTS).cast::<[u8; NUM_SEQUENCES]>().add(idx);
 
         for &c in chunk {
