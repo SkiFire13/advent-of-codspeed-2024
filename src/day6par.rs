@@ -1,76 +1,20 @@
 #![allow(unused_attributes)]
+#![allow(static_mut_refs)]
 #![feature(portable_simd)]
 #![feature(avx512_target_feature)]
 #![feature(slice_ptr_get)]
 
 use std::simd::prelude::*;
 
+use rayon::prelude::*;
+
 pub fn run(input: &str) -> i64 {
     part2(input) as i64
 }
-
-pub fn part1(input: &str) -> u32 {
-    unsafe { inner_part1(input) }
-}
-
 pub fn part2(input: &str) -> u32 {
     unsafe { inner_part2(input) }
-    // super::day6par::part2(input)
 }
 
-#[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
-#[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
-unsafe fn inner_part1(input: &str) -> u32 {
-    let input = input.as_bytes();
-
-    let mut offset = 0;
-    let start = loop {
-        let block = u8x32::from_slice(input.get_unchecked(offset..offset + 32));
-        if let Some(start_pos) = block.simd_eq(u8x32::splat(b'^')).first_set() {
-            break offset + start_pos;
-        }
-        offset += 32;
-    };
-
-    let mut seen = [0u64; (130 * 131 + 63) / 64];
-    let mut seen_count = 0;
-    let mut pos = start;
-    seen[pos / 64] |= 1 << (pos % 64);
-    seen_count += 1;
-
-    macro_rules! move_and_check {
-        ($next:ident: d[$d:expr] check[$check:expr]) => {
-            loop {
-                let $next = pos.wrapping_add($d);
-                if $check {
-                    return seen_count;
-                }
-
-                if *input.get_unchecked($next) == b'#' {
-                    break;
-                }
-
-                pos = $next;
-
-                let seen_elem = seen.get_unchecked_mut(pos / 64);
-                let seen_mask = 1 << (pos % 64);
-                if *seen_elem & seen_mask == 0 {
-                    *seen_elem |= seen_mask;
-                    seen_count += 1;
-                }
-            }
-        };
-    }
-
-    loop {
-        move_and_check!(next: d[-131isize as usize] check[next >= 131 * 130]);
-        move_and_check!(next: d[1 as usize]         check[next % 131 == 130]);
-        move_and_check!(next: d[131isize as usize]  check[next >= 131 * 130]);
-        move_and_check!(next: d[-1isize as usize]   check[next % 131 == 130]);
-    }
-}
-
-#[allow(unused)]
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part2(input: &str) -> u32 {
@@ -135,8 +79,8 @@ unsafe fn inner_part2(input: &str) -> u32 {
     const TOP_M: usize = 0b01;
     const LEFT_M: usize = 0b10;
     const RIGHT_M: usize = 0b11;
-    let mut move_map = [(out_rock_idx as u32) << 2; 1024 * 4];
-    let move_map = &mut move_map[..(out_rock_idx + 1) << 2];
+    let mut move_map_raw = [(out_rock_idx as u32) << 2; 1024 * 4];
+    let move_map = &mut move_map_raw[..(out_rock_idx + 1) << 2];
 
     fn mov(pos: usize, mask: usize) -> usize {
         (pos << 2) | mask
@@ -253,58 +197,79 @@ unsafe fn inner_part2(input: &str) -> u32 {
     }
 
     let mut pos = start as usize;
-    let mut count = 0;
     let mut seen = [0u64; (130 * 131 + 63) / 64];
     seen[pos % 64] |= 1 << (pos % 64);
 
     let mut next;
 
-    macro_rules! move_and_check {
-        ($dpos:expr, $cond:expr, $dir:ident) => {
-            loop {
-                next = pos.wrapping_add($dpos);
-                if $cond {
-                    return count;
-                }
+    static mut TO_CHECK: [usize; 8000] = [0; 8000];
+    let mut to_check_len = 0;
 
-                if *input.get_unchecked(next) == b'#' {
-                    break;
-                }
+    'outer: loop {
+        macro_rules! move_and_check {
+            ($dpos:expr, $cond:expr, $dir:ident) => {
+                loop {
+                    next = pos.wrapping_add($dpos);
+                    if $cond {
+                        break 'outer;
+                    }
 
-                pos = next;
+                    if *input.get_unchecked(next) == b'#' {
+                        break;
+                    }
 
-                let seen_elem = seen.get_unchecked_mut(pos / 64);
-                let seen_mask = 1 << (pos % 64);
-                if *seen_elem & seen_mask == 0 {
-                    *seen_elem |= seen_mask;
+                    pos = next;
 
-                    let is_loop = check_loop(
-                        &rocks_x,
-                        &rocks_y,
-                        &rocksx_id,
-                        &rocksx_len,
-                        &rocksy_id,
-                        &rocksy_len,
-                        rocks_len,
-                        move_map,
-                        pos,
-                        $dir,
-                    );
+                    let seen_elem = seen.get_unchecked_mut(pos / 64);
+                    let seen_mask = 1 << (pos % 64);
+                    if *seen_elem & seen_mask == 0 {
+                        *seen_elem |= seen_mask;
 
-                    if is_loop {
-                        count += 1;
+                        *TO_CHECK.get_unchecked_mut(to_check_len) = mov(pos, $dir);
+                        to_check_len += 1;
                     }
                 }
-            }
-        };
-    }
+            };
+        }
 
-    loop {
         move_and_check!(-131isize as usize, next >= 131 * 130, BOT_M);
         move_and_check!(1, next % 131 == 130, LEFT_M);
         move_and_check!(131, next >= 131 * 130, TOP_M);
         move_and_check!(-1isize as usize, next % 131 == 130, RIGHT_M);
     }
+
+    return TO_CHECK
+        .get_unchecked(..to_check_len)
+        .par_chunks(to_check_len.div_ceil(16))
+        .with_max_len(1)
+        .map(|chunk| {
+            let mut move_map_raw = move_map_raw;
+            let move_map = &mut move_map_raw[..(out_rock_idx + 1) << 2];
+
+            let mut count = 0;
+            for &mov_pos in chunk {
+                let (pos, dir) = (mov_pos >> 2, mov_pos & 0b11);
+
+                let is_loop = check_loop(
+                    &rocks_x,
+                    &rocks_y,
+                    &rocksx_id,
+                    &rocksx_len,
+                    &rocksy_id,
+                    &rocksy_len,
+                    rocks_len,
+                    move_map,
+                    pos,
+                    dir,
+                );
+
+                if is_loop {
+                    count += 1;
+                }
+            }
+            count
+        })
+        .sum();
 
     #[inline(always)]
     unsafe fn check_loop(
