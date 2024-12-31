@@ -244,9 +244,7 @@ mod par {
                 if ptr.is_null() {
                     break;
                 }
-                for _ in 0..500 {
-                    std::hint::spin_loop();
-                }
+                std::hint::spin_loop();
             }
         }
     }
@@ -260,16 +258,13 @@ mod par {
                 if !data.is_null() {
                     (&*data.cast::<F>())(idx);
                     work.0.store(std::ptr::null_mut(), Ordering::Release);
-                } else {
-                    for _ in 0..500 {
-                        std::hint::spin_loop();
-                    }
                 }
+                std::hint::spin_loop();
             }
         });
     }
 
-    pub fn par<F: Fn(usize)>(f: F) {
+    pub unsafe fn par<F: Fn(usize)>(f: F) {
         submit(&f);
         f(0);
         wait();
