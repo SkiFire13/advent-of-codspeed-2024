@@ -13,10 +13,11 @@ use std::simd::prelude::*;
 
 use rayon::prelude::*;
 
-const WSIZE: usize = 32;
+const WSIZE: usize = 16;
 const LEN: usize = (1 << 24) - 1 + 2000 + WSIZE;
 static mut NUM_TO_INDEX: [u32; 1 << 24] = [0; 1 << 24];
 static mut DIGITS: [u8; LEN] = [0; LEN];
+static mut DIFFS: [u16; LEN] = [0; LEN];
 static mut LAST_SEEN: [u32; LEN] = [0; LEN];
 
 unsafe fn build_tables() {
@@ -42,6 +43,7 @@ unsafe fn build_tables() {
             let diff = [9 + d2 - d1, 9 + d3 - d2, 9 + d4 - d3, 9 + d5 - d4]
                 .into_iter()
                 .fold(0, |a, d| 19 * a + d);
+            DIFFS[i] = diff as u16;
             LAST_SEEN[i] = DIFF_TO_LAST_SEEN[diff];
             DIFF_TO_LAST_SEEN[diff] = i as u32;
         }
@@ -144,38 +146,32 @@ unsafe fn inner_part2(input: &str) -> u64 {
         .for_each(|(chunk, counts)| {
             for &c in chunk {
                 let idx = *NUM_TO_INDEX.get_unchecked(c as usize) as usize;
-                let mut curr = idx;
+                let mut curr = idx + 1;
 
                 macro_rules! handle {
-                    ($max:expr) => {{
+                    ($min:expr) => {{
                         let digits = DIGITS.get_unchecked(curr..curr + WSIZE);
                         let digits = Simd::<u8, WSIZE>::from_slice(digits);
-                        let d16 = digits.cast::<u16>();
-                        let nt = Simd::splat(19);
-                        let ntt = Simd::splat(19 * 19);
-                        let d1 = d16 - d16.rotate_elements_right::<1>();
-                        let ntd = d1 + nt * d1.rotate_elements_right::<1>();
-                        let nttd = ntd + ntt * ntd.rotate_elements_right::<2>();
-                        let diff = nttd + Simd::splat(19 * 19 * 19 * 9 + 19 * 19 * 9 + 19 * 9 + 9);
+
+                        let diff = DIFFS.get_unchecked(curr..curr + WSIZE);
 
                         let last = LAST_SEEN.get_unchecked(curr..curr + WSIZE);
-                        let last = Simd::<u32, WSIZE>::from_slice(last);
-                        let mask = last.simd_lt(Simd::splat(idx as u32 + 4));
-
+                        let last = Simd::<u32, WSIZE>::from_slice(last).cast::<i32>();
+                        let mask = last.simd_lt(Simd::splat(idx as i32 + 4));
                         let to_sum = digits & mask.to_int().cast();
 
-                        for i in 4..$max {
+                        for i in $min..WSIZE {
                             *counts.get_unchecked_mut(diff[i] as usize) += to_sum[i];
                         }
+
+                        curr += WSIZE;
                     }};
                 }
 
-                while curr + WSIZE <= idx + 2000 {
-                    handle!(WSIZE);
-                    curr += WSIZE - 4;
+                handle!(3);
+                for _ in 1..2000 / WSIZE {
+                    handle!(0);
                 }
-                // TODO: Understand why the +1 here is needed
-                handle!(4 + (2000 - 4) % (WSIZE - 4) + 1);
             }
         });
 
