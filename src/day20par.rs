@@ -10,8 +10,6 @@
 use std::mem::transmute;
 use std::simd::prelude::*;
 
-use rayon::prelude::*;
-
 pub fn run(input: &str) -> i64 {
     part2(input) as i64
 }
@@ -100,29 +98,30 @@ unsafe fn inner_part2(input: &str) -> u64 {
     const STEP: usize = REAL_LEN / THREADS;
     const { assert!(REAL_LEN % THREADS == 0) }
 
-    (0..THREADS)
-        .into_par_iter()
-        .with_max_len(1)
-        .map(|thread| {
-            let start = BASE + thread * STEP;
-            let end = start + STEP;
+    let sum = std::sync::atomic::AtomicU64::new(0);
+    par::par(|thread| {
+        let start = BASE + thread * STEP;
+        let end = start + STEP;
 
-            let mut count = i32x16::splat(0);
+        let mut count = i32x16::splat(0);
 
-            for icurr in start..end {
-                if *input.get_unchecked(icurr) == b'#' || *input.get_unchecked(icurr) == b'\n' {
-                    continue;
-                }
-
-                let scurr = 20 + SLINE * (icurr / 142 - 1 + 20) + (icurr % 142 - 1);
-                let n = *seen.get_unchecked(scurr);
-
-                count += sum_cheats(scurr, n, &seen);
+        for icurr in start..end {
+            if *input.get_unchecked(icurr) == b'#' || *input.get_unchecked(icurr) == b'\n' {
+                continue;
             }
 
-            -count.reduce_sum() as u64
-        })
-        .sum()
+            let scurr = 20 + SLINE * (icurr / 142 - 1 + 20) + (icurr % 142 - 1);
+            let n = *seen.get_unchecked(scurr);
+
+            count += sum_cheats(scurr, n, &seen);
+        }
+
+        sum.fetch_add(
+            -count.reduce_sum() as u64,
+            std::sync::atomic::Ordering::Relaxed,
+        );
+    });
+    sum.into_inner()
 }
 
 #[inline(always)]
@@ -194,4 +193,73 @@ unsafe fn sum_cheats(scurr: usize, n: i16, seen: &[i16; 20 + (139 + 40) * SLINE]
     }
 
     count.cast::<i32>()
+}
+
+mod par {
+    use std::sync::atomic::{AtomicPtr, Ordering};
+
+    pub const NUM_THREADS: usize = 16;
+
+    #[repr(align(64))]
+    struct CachePadded<T>(T);
+
+    static mut INIT: bool = false;
+
+    static WORK: [CachePadded<AtomicPtr<()>>; NUM_THREADS] =
+        [const { CachePadded(AtomicPtr::new(std::ptr::null_mut())) }; NUM_THREADS];
+
+    #[inline(always)]
+    fn submit<F: Fn(usize)>(f: &F) {
+        unsafe {
+            if !INIT {
+                INIT = true;
+                for idx in 1..NUM_THREADS {
+                    thread_run(idx, f);
+                }
+            }
+        }
+
+        for i in 1..NUM_THREADS {
+            WORK[i].0.store(f as *const F as *mut (), Ordering::Release);
+        }
+    }
+
+    #[inline(always)]
+    fn wait() {
+        for i in 1..NUM_THREADS {
+            loop {
+                let ptr = WORK[i].0.load(Ordering::Acquire);
+                if ptr.is_null() {
+                    break;
+                }
+                for _ in 0..500 {
+                    std::hint::spin_loop();
+                }
+            }
+        }
+    }
+
+    fn thread_run<F: Fn(usize)>(idx: usize, _f: &F) {
+        _ = std::thread::Builder::new().spawn(move || unsafe {
+            let work = WORK.get_unchecked(idx);
+
+            loop {
+                let data = work.0.load(Ordering::Acquire);
+                if !data.is_null() {
+                    (&*data.cast::<F>())(idx);
+                    work.0.store(std::ptr::null_mut(), Ordering::Release);
+                } else {
+                    for _ in 0..500 {
+                        std::hint::spin_loop();
+                    }
+                }
+            }
+        });
+    }
+
+    pub fn par<F: Fn(usize)>(f: F) {
+        submit(&f);
+        f(0);
+        wait();
+    }
 }
