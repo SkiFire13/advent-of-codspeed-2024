@@ -11,8 +11,6 @@
 use std::arch::x86_64::*;
 use std::simd::prelude::*;
 
-use rayon::prelude::*;
-
 const WSIZE: usize = 16;
 const LEN: usize = (1 << 24) - 1 + 2000 + WSIZE;
 static mut NUM_TO_INDEX: [u32; 1 << 24] = [0; 1 << 24];
@@ -140,40 +138,44 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
     let chunk_len = nums.len().div_ceil(NUM_THREADS).next_multiple_of(8);
 
-    nums.par_chunks(chunk_len)
-        .zip(COUNTS.par_chunks_mut(NUM_SEQUENCES))
-        .with_max_len(1)
-        .for_each(|(chunk, counts)| {
-            for &c in chunk {
-                let idx = *NUM_TO_INDEX.get_unchecked(c as usize) as usize;
-                let mut curr = idx + 1;
+    par::par(|idx| {
+        let chunk = nums.get_unchecked(chunk_len * idx..);
+        let chunk = chunk.get_unchecked(..std::cmp::min(chunk.len(), chunk_len));
+        let counts = &mut *(&raw mut COUNTS)
+            .cast::<u8>()
+            .add(idx * NUM_SEQUENCES)
+            .cast::<[u8; NUM_SEQUENCES]>();
 
-                macro_rules! handle {
-                    ($min:expr) => {{
-                        let digits = DIGITS.get_unchecked(curr..curr + WSIZE);
-                        let digits = Simd::<u8, WSIZE>::from_slice(digits);
+        for &c in chunk {
+            let idx = *NUM_TO_INDEX.get_unchecked(c as usize) as usize;
+            let mut curr = idx + 1;
 
-                        let diff = DIFFS.get_unchecked(curr..curr + WSIZE);
+            macro_rules! handle {
+                ($min:expr) => {{
+                    let digits = DIGITS.get_unchecked(curr..curr + WSIZE);
+                    let digits = Simd::<u8, WSIZE>::from_slice(digits);
 
-                        let last = LAST_SEEN.get_unchecked(curr..curr + WSIZE);
-                        let last = Simd::<u32, WSIZE>::from_slice(last).cast::<i32>();
-                        let mask = last.simd_lt(Simd::splat(idx as i32 + 4));
-                        let to_sum = digits & mask.to_int().cast();
+                    let diff = DIFFS.get_unchecked(curr..curr + WSIZE);
 
-                        for i in $min..WSIZE {
-                            *counts.get_unchecked_mut(diff[i] as usize) += to_sum[i];
-                        }
+                    let last = LAST_SEEN.get_unchecked(curr..curr + WSIZE);
+                    let last = Simd::<u32, WSIZE>::from_slice(last).cast::<i32>();
+                    let mask = last.simd_lt(Simd::splat(idx as i32 + 4));
+                    let to_sum = digits & mask.to_int().cast();
 
-                        curr += WSIZE;
-                    }};
-                }
+                    for i in $min..WSIZE {
+                        *counts.get_unchecked_mut(diff[i] as usize) += to_sum[i];
+                    }
 
-                handle!(3);
-                for _ in 1..2000 / WSIZE {
-                    handle!(0);
-                }
+                    curr += WSIZE;
+                }};
             }
-        });
+
+            handle!(3);
+            for _ in 1..2000 / WSIZE {
+                handle!(0);
+            }
+        }
+    });
 
     let mut max = u16x16::splat(0);
 
@@ -191,4 +193,73 @@ unsafe fn inner_part2(input: &str) -> u64 {
     }
 
     max.reduce_max() as u64
+}
+
+mod par {
+    use std::sync::atomic::{AtomicPtr, Ordering};
+
+    pub const NUM_THREADS: usize = 16;
+
+    #[repr(align(64))]
+    struct CachePadded<T>(T);
+
+    static mut INIT: bool = false;
+
+    static WORK: [CachePadded<AtomicPtr<()>>; NUM_THREADS] =
+        [const { CachePadded(AtomicPtr::new(std::ptr::null_mut())) }; NUM_THREADS];
+
+    #[inline(always)]
+    fn submit<F: Fn(usize)>(f: &F) {
+        unsafe {
+            if !INIT {
+                INIT = true;
+                for idx in 1..NUM_THREADS {
+                    thread_run(idx, f);
+                }
+            }
+        }
+
+        for i in 1..NUM_THREADS {
+            WORK[i].0.store(f as *const F as *mut (), Ordering::Release);
+        }
+    }
+
+    #[inline(always)]
+    fn wait() {
+        for i in 1..NUM_THREADS {
+            loop {
+                let ptr = WORK[i].0.load(Ordering::Acquire);
+                if ptr.is_null() {
+                    break;
+                }
+                for _ in 0..500 {
+                    std::hint::spin_loop();
+                }
+            }
+        }
+    }
+
+    fn thread_run<F: Fn(usize)>(idx: usize, _f: &F) {
+        _ = std::thread::Builder::new().spawn(move || unsafe {
+            let work = WORK.get_unchecked(idx);
+
+            loop {
+                let data = work.0.load(Ordering::Acquire);
+                if !data.is_null() {
+                    (&*data.cast::<F>())(idx);
+                    work.0.store(std::ptr::null_mut(), Ordering::Release);
+                } else {
+                    for _ in 0..500 {
+                        std::hint::spin_loop();
+                    }
+                }
+            }
+        });
+    }
+
+    pub fn par<F: Fn(usize)>(f: F) {
+        submit(&f);
+        f(0);
+        wait();
+    }
 }
