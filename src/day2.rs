@@ -1,5 +1,15 @@
 pub fn run(input: &str) -> i64 {
-    part2(input) as i64
+    part1(input) as i64
+}
+
+pub fn part1(input: &str) -> u64 {
+    inner_part1(input)
+    // super::day2par::part1(input)
+}
+
+pub fn part2(input: &str) -> u64 {
+    inner_part2(input)
+    // super::day2par::part2(input)
 }
 
 static LT_VALID: [bool; 256] = {
@@ -28,7 +38,7 @@ fn gt_valid(diff: i8) -> bool {
     GT_VALID[diff as u8 as usize]
 }
 
-pub fn part1(input: &str) -> u32 {
+pub fn inner_part1(input: &str) -> u64 {
     let mut input = input.as_bytes().iter();
 
     unsafe fn read(input: &mut std::slice::Iter<u8>) -> (i8, u8) {
@@ -101,7 +111,7 @@ pub fn part1(input: &str) -> u32 {
     count
 }
 
-pub fn part2(input: &str) -> u32 {
+pub fn inner_part2(input: &str) -> u64 {
     let mut input = input.as_bytes().iter();
 
     unsafe fn read(input: &mut std::slice::Iter<u8>) -> (i8, u8) {
