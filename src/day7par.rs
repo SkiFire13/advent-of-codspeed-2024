@@ -82,8 +82,8 @@ unsafe fn inner_part1(input: &str) -> u64 {
     }
 
     let sum = std::sync::atomic::AtomicU64::new(0);
-    let chunk_len = lines.len().div_ceil(par::NUM_THREADS);
-    par::par(|idx| {
+    let chunk_len = lines.len().div_ceil(par1::NUM_THREADS);
+    par1::par(|idx| {
         let chunk = lines.get_unchecked(chunk_len * idx..);
         let chunk = chunk.get_unchecked(..std::cmp::min(chunk.len(), chunk_len));
 
@@ -227,8 +227,8 @@ unsafe fn inner_part2(input: &str) -> u64 {
     }
 
     let sum = std::sync::atomic::AtomicU64::new(0);
-    let chunk_len = lines.len().div_ceil(par::NUM_THREADS);
-    par::par(|idx| {
+    let chunk_len = lines.len().div_ceil(par2::NUM_THREADS);
+    par2::par(|idx| {
         let chunk = lines.get_unchecked(chunk_len * idx..);
         let chunk = chunk.get_unchecked(..std::cmp::min(chunk.len(), chunk_len));
 
@@ -380,7 +380,71 @@ mod fastdiv {
     }
 }
 
-mod par {
+mod par1 {
+    use std::sync::atomic::{AtomicPtr, Ordering};
+
+    pub const NUM_THREADS: usize = 16;
+
+    #[repr(align(64))]
+    struct CachePadded<T>(T);
+
+    static mut INIT: bool = false;
+
+    static WORK: [CachePadded<AtomicPtr<()>>; NUM_THREADS] =
+        [const { CachePadded(AtomicPtr::new(std::ptr::null_mut())) }; NUM_THREADS];
+
+    #[inline(always)]
+    fn submit<F: Fn(usize)>(f: &F) {
+        unsafe {
+            if !INIT {
+                INIT = true;
+                for idx in 1..NUM_THREADS {
+                    thread_run(idx, f);
+                }
+            }
+        }
+
+        for i in 1..NUM_THREADS {
+            WORK[i].0.store(f as *const F as *mut (), Ordering::Release);
+        }
+    }
+
+    #[inline(always)]
+    fn wait() {
+        for i in 1..NUM_THREADS {
+            loop {
+                let ptr = WORK[i].0.load(Ordering::Acquire);
+                if ptr.is_null() {
+                    break;
+                }
+                std::hint::spin_loop();
+            }
+        }
+    }
+
+    fn thread_run<F: Fn(usize)>(idx: usize, _f: &F) {
+        _ = std::thread::Builder::new().spawn(move || unsafe {
+            let work = WORK.get_unchecked(idx);
+
+            loop {
+                let data = work.0.load(Ordering::Acquire);
+                if !data.is_null() {
+                    (&*data.cast::<F>())(idx);
+                    work.0.store(std::ptr::null_mut(), Ordering::Release);
+                }
+                std::hint::spin_loop();
+            }
+        });
+    }
+
+    pub unsafe fn par<F: Fn(usize)>(f: F) {
+        submit(&f);
+        f(0);
+        wait();
+    }
+}
+
+mod par2 {
     use std::sync::atomic::{AtomicPtr, Ordering};
 
     pub const NUM_THREADS: usize = 16;
