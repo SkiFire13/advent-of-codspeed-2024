@@ -9,10 +9,12 @@ pub fn run(input: &str) -> i64 {
 
 pub fn part1(input: &str) -> u64 {
     unsafe { inner_part1(input) }
+    // super::day7par::part1(input)
 }
 
 pub fn part2(input: &str) -> u64 {
     unsafe { inner_part2(input) }
+    // super::day7par::part2(input)
 }
 
 #[inline(always)]
@@ -58,6 +60,7 @@ pub unsafe fn parse1(
     true
 }
 
+#[allow(unused)]
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part1(input: &str) -> u64 {
@@ -179,6 +182,7 @@ pub unsafe fn parse2(
     true
 }
 
+#[allow(unused)]
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part2(input: &str) -> u64 {
