@@ -16,6 +16,7 @@ pub fn run(input: &str) -> i64 {
 #[inline(always)]
 pub fn part1(input: &str) -> u64 {
     unsafe { inner_part1(input) }
+    // super::day19par::part1(input)
 }
 
 #[inline(always)]
@@ -34,6 +35,7 @@ static LUT: [usize; 128] = {
     lut
 };
 
+#[allow(unused)]
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part1(input: &str) -> u64 {
