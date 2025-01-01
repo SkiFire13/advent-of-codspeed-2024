@@ -239,75 +239,59 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
 #[inline(always)]
 unsafe fn collect(input: &[u8; 141 + 141 * 141 + 32], extra: &[i8; 141 + 141 * 141 + 32]) -> u64 {
-    let mut uf = [MaybeUninit::<(u32, u32)>::uninit(); 141 + 140 * 141];
-    let uf = uf.as_mut_ptr().cast::<(u32, u32)>();
+    let mut uf = [MaybeUninit::<u64>::uninit(); 141 + 140 * 141];
+    let uf = uf.as_mut_ptr().cast::<u64>();
     let mut tot = 0;
-    let mut off = 141;
 
-    let mut goal = 141 + 140;
+    uf.write_bytes(0, 141);
+    *uf.cast::<[u32; 2]>() = [1, 1];
 
-    while goal < 141 + 140 * 141 {
-        while off < goal {
+    for y in 0..140 {
+        let mut prev_c = u8::MAX;
+        let mut root = usize::MAX;
+        let mut top_prev = u32::MAX as u64;
+
+        for x in 0..140 {
+            let off = 141 + 141 * y + x;
+
             let c = *input.get_unchecked(off);
-            debug_assert_ne!(c, b'\n');
             let e = *extra.get_unchecked(off) as u8 as u64;
 
-            if *input.get_unchecked(off - 1) == c {
-                let mut root = off - 1;
-                let mut t = &mut *uf.add(root);
-                if t.0 == 0 {
-                    root = t.1 as _;
-                    t = &mut *uf.add(root);
-                }
-                debug_assert_ne!((*uf.add(root)).0, 0);
-                t.0 += 1;
-                tot += t.0 as u64 * e as u64 + t.1 as u64;
-                t.1 += e as u32;
-                *uf.add(off) = (0, root as _);
-
-                if *input.get_unchecked(off - 141) == c {
-                    'union: {
-                        let mut root2 = off - 141;
-                        if root != root2 {
-                            let mut t2 = &mut *uf.add(root2);
-                            while t2.0 == 0 {
-                                root2 = t2.1 as _;
-                                if root != root2 {
-                                    t2 = &mut *uf.add(root2);
-                                } else {
-                                    break 'union;
-                                }
-                            }
-                            debug_assert_ne!((*uf.add(root2)).0, 0);
-                            tot += t.0 as u64 * t2.1 as u64 + t.1 as u64 * t2.0 as u64;
-                            t.0 += t2.0;
-                            t.1 += t2.1;
-                            *t2 = (0, root as _);
-                        }
-                    }
-                }
-            } else if *input.get_unchecked(off - 141) == c {
-                let mut root = off - 141;
-                let mut t = &mut *uf.add(root);
-                while t.0 == 0 {
-                    root = t.1 as _;
-                    t = &mut *uf.add(root);
-                }
-                debug_assert_ne!((*uf.add(root)).0, 0);
-                t.0 += 1;
-                tot += t.0 as u64 * e + t.1 as u64;
-                t.1 += e as u32;
-                *uf.add(off) = (0, root as _);
-            } else {
-                *uf.add(off) = (1, e as _);
-                tot += e;
+            *uf.add(off) = root as u64;
+            if c != prev_c {
+                prev_c = c;
+                root = off;
+                *uf.add(off) = 0;
             }
 
-            off += 1;
+            let t = &mut *uf.add(root).cast::<[u32; 2]>();
+            t[1] += 1;
+            tot += t[1] as u64 * e as u64 + t[0] as u64;
+            t[0] += e as u32;
+
+            let top = off - 141;
+            let tt = *uf.add(top);
+            if tt != top_prev {
+                top_prev = top as u64;
+            }
+
+            if (top_prev == top as u64 || root == off) && *input.get_unchecked(top) == c {
+                let mut tt_root = top;
+                while *uf.add(tt_root).cast::<u32>().add(1) == 0 {
+                    tt_root = *uf.add(tt_root).cast::<u32>() as usize;
+                }
+
+                if tt_root != root {
+                    let t2 = &mut *uf.add(tt_root).cast::<[u32; 2]>();
+
+                    tot += t[1] as u64 * t2[0] as u64 + t[0] as u64 * t2[1] as u64;
+                    t[1] += t2[1];
+                    t[0] += t2[0];
+
+                    *uf.add(tt_root) = root as u64;
+                }
+            }
         }
-        debug_assert_eq!(*input.get_unchecked(off), b'\n');
-        off += 1;
-        goal += 141;
     }
 
     tot
