@@ -82,6 +82,48 @@ unsafe fn inner_part2(input: &str) -> u64 {
         *queues.get_mut(i).get_mut(0).as_mut_ptr() = u16::MAX;
     }
 
+    macro_rules! queue_push {
+        ($i:expr, $elem:expr) => {{
+            let i = $i as usize;
+            let elem = $elem;
+            let len = queues_len.get_unchecked_mut(i);
+            let queue = queues.get_mut(i);
+            let mut pos = *len;
+            while *queue.get(pos - 1).as_ptr() < elem {
+                pos -= 1;
+            }
+            let ptr = queue.as_mut_ptr().cast::<u16>();
+            std::ptr::copy(ptr.add(pos), ptr.add(pos + 1), *len - pos);
+            *queue.get_mut(pos).as_mut_ptr() = elem;
+            *len += 1;
+        }};
+    }
+
+    macro_rules! bheap_push {
+        ($elem:expr) => {{
+            let len = queues_len.get_unchecked_mut(0);
+            let heap = queues.get_mut(0);
+            *heap.get_mut(*len).as_mut_ptr() = $elem;
+            *len += 1;
+            bheap::push(&mut *heap.as_mut_ptr().as_mut_slice().get_unchecked_mut(..*len));
+        }};
+    }
+
+    macro_rules! queue_pop {
+        ($i:expr) => {{
+            *queues_len.get_unchecked_mut($i as usize) -= 1;
+        }};
+    }
+
+    macro_rules! bheap_pop {
+        () => {{
+            let len = queues_len.get_unchecked_mut(0);
+            let heap = queues.get_mut(0);
+            bheap::pop(&mut *heap.as_mut_ptr().as_mut_slice().get_unchecked_mut(..*len));
+            *len -= 1;
+        }};
+    }
+
     let mut i = 19999;
     let mut j = 9999;
     loop {
@@ -159,36 +201,20 @@ unsafe fn inner_part2(input: &str) -> u64 {
         if b == 1 && j < min_j && (j as usize) < i / 2 {
             min_j = j;
 
-            let len = queues_len.get_unchecked_mut(0);
-            let heap = queues.get_mut(0);
-            bheap::pop(&mut *heap.as_mut_ptr().as_mut_slice().get_unchecked_mut(..*len));
-            *len -= 1;
+            bheap_pop!();
 
             let pos = total_pos - *poss.get(min_j as usize).as_ptr() as usize;
             let len = b as usize;
             tot += (i / 2) * (len * (2 * pos + len - 1) / 2);
             *poss.get_mut(min_j as usize).as_mut_ptr() -= b as u16;
         } else if (min_j as usize) < i / 2 {
-            *queues_len.get_unchecked_mut(min_h as usize) -= 1;
+            queue_pop!(min_h);
 
             if min_h != b {
                 if min_h - b == 1 {
-                    let len = queues_len.get_unchecked_mut(0);
-                    let heap = queues.get_mut(0);
-                    *heap.get_mut(*len).as_mut_ptr() = min_j;
-                    *len += 1;
-                    bheap::push(&mut *heap.as_mut_ptr().as_mut_slice().get_unchecked_mut(..*len));
+                    bheap_push!(min_j);
                 } else {
-                    let len = queues_len.get_unchecked_mut((min_h - b) as usize);
-                    let queue = queues.get_mut((min_h - b) as usize);
-                    let mut pos = *len;
-                    while *queue.get(pos - 1).as_ptr() < min_j {
-                        pos -= 1;
-                    }
-                    let ptr = queue.as_mut_ptr().cast::<u16>();
-                    std::ptr::copy(ptr.add(pos), ptr.add(pos + 1), *len - pos);
-                    *queue.get_mut(pos).as_mut_ptr() = min_j;
-                    *len += 1;
+                    queue_push!(min_h - b, min_j);
                 }
             }
 
@@ -236,38 +262,20 @@ unsafe fn inner_part2(input: &str) -> u64 {
             if b == 1 && j < min_j && (j as usize) < i / 2 {
                 min_j = j;
 
-                let len = queues_len.get_unchecked_mut(0);
-                let heap = queues.get_mut(0);
-                bheap::pop(&mut *heap.as_mut_ptr().as_mut_slice().get_unchecked_mut(..*len));
-                *len -= 1;
+                bheap_pop!();
 
                 let pos = total_pos - *poss.get(min_j as usize).as_ptr() as usize;
                 let len = b as usize;
                 tot += (i / 2) * (len * (2 * pos + len - 1) / 2);
                 *poss.get_mut(min_j as usize).as_mut_ptr() -= b as u16;
             } else if (min_j as usize) < i / 2 {
-                *queues_len.get_unchecked_mut(min_h as usize) -= 1;
+                queue_pop!(min_h);
 
                 if min_h != b {
                     if min_h - b == 1 {
-                        let len = queues_len.get_unchecked_mut(0);
-                        let heap = queues.get_mut(0);
-                        *heap.get_mut(*len).as_mut_ptr() = min_j;
-                        *len += 1;
-                        bheap::push(
-                            &mut *heap.as_mut_ptr().as_mut_slice().get_unchecked_mut(..*len),
-                        );
+                        bheap_push!(min_j);
                     } else {
-                        let len = queues_len.get_unchecked_mut((min_h - b) as usize);
-                        let queue = queues.get_mut((min_h - b) as usize);
-                        let mut pos = *len;
-                        while *queue.get(pos - 1).as_ptr() < min_j {
-                            pos -= 1;
-                        }
-                        let ptr = queue.as_mut_ptr().cast::<u16>();
-                        std::ptr::copy(ptr.add(pos), ptr.add(pos + 1), *len - pos);
-                        *queue.get_mut(pos).as_mut_ptr() = min_j;
-                        *len += 1;
+                        queue_push!(min_h - b, min_j);
                     }
                 }
 
