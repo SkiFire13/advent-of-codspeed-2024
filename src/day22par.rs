@@ -106,8 +106,6 @@ macro_rules! parse {
     }};
 }
 
-const NUM_SEQUENCES: usize = 19 * 19 * 19 * 19;
-
 #[target_feature(enable = "popcnt,avx2,ssse3,bmi1,bmi2,lzcnt")]
 #[cfg_attr(avx512_available, target_feature(enable = "avx512vl"))]
 unsafe fn inner_part2(input: &str) -> u64 {
@@ -137,17 +135,17 @@ unsafe fn inner_part2(input: &str) -> u64 {
         nums_len += 1;
     };
 
-    const NUM_COUNTS: usize = NUM_SEQUENCES * par::NUM_THREADS + (16 - NUM_SEQUENCES % 16) % 16;
+    const NUM_SEQUENCES: usize = 40951usize.next_multiple_of(32);
+    const NUM_COUNTS: usize = NUM_SEQUENCES * par::NUM_THREADS;
     static mut COUNTS: [u8; NUM_COUNTS] = [0; NUM_COUNTS];
     COUNTS.fill(0);
 
     let nums = nums.get_unchecked_mut(..nums_len);
 
-    let mut chunk_lens = [nums.len() / 8 / par::NUM_THREADS * 8; par::NUM_THREADS];
-    for i in 0..nums.len() / 8 % par::NUM_THREADS {
-        chunk_lens[i] += 8;
+    let mut chunk_lens = [nums.len() / par::NUM_THREADS; par::NUM_THREADS];
+    for i in 0..nums.len() % par::NUM_THREADS {
+        chunk_lens[i] += 1;
     }
-    chunk_lens[par::NUM_THREADS - 1] += nums.len() % 8;
 
     let mut chunk_pos = [0; par::NUM_THREADS + 1];
     for i in 0..par::NUM_THREADS {
