@@ -4,7 +4,7 @@
 #![feature(slice_ptr_get)]
 #![feature(array_ptr_get)]
 
-use std::mem::MaybeUninit;
+use std::simd::prelude::*;
 
 pub fn run(input: &str) -> i64 {
     part2(input) as i64
@@ -74,323 +74,73 @@ unsafe fn inner_part2(input: &str) -> u64 {
     let input = input.as_bytes();
 
     let mut pos = 0;
-    let mut poss = MaybeUninit::<[u16; 5700]>::uninit();
-    let mut queues = MaybeUninit::<[[u16; 750]; 10]>::uninit();
-    let mut queues_len = [1; 10];
-
-    for i in 0..10 {
-        *queues.get_mut(i).get_mut(0).as_mut_ptr() = u16::MAX;
-    }
-
-    macro_rules! queue_push {
-        ($i:expr, $elem:expr) => {{
-            let i = $i as usize;
-            let elem = $elem;
-            let len = queues_len.get_unchecked_mut(i);
-            let queue = queues.get_mut(i);
-            let mut pos = *len;
-            while *queue.get(pos - 1).as_ptr() < elem {
-                pos -= 1;
-            }
-            let ptr = queue.as_mut_ptr().cast::<u16>();
-            std::ptr::copy(ptr.add(pos), ptr.add(pos + 1), *len - pos);
-            *queue.get_mut(pos).as_mut_ptr() = elem;
-            *len += 1;
-        }};
-    }
-
-    macro_rules! bheap_push {
-        ($elem:expr) => {{
-            let len = queues_len.get_unchecked_mut(0);
-            let heap = queues.get_mut(0);
-            *heap.get_mut(*len).as_mut_ptr() = $elem;
-            *len += 1;
-            bheap::push(&mut *heap.as_mut_ptr().as_mut_slice().get_unchecked_mut(..*len));
-        }};
-    }
-
-    macro_rules! queue_pop {
-        ($i:expr) => {{
-            *queues_len.get_unchecked_mut($i as usize) -= 1;
-        }};
-    }
-
-    macro_rules! bheap_pop {
-        () => {{
-            let len = queues_len.get_unchecked_mut(0);
-            let heap = queues.get_mut(0);
-            bheap::pop(&mut *heap.as_mut_ptr().as_mut_slice().get_unchecked_mut(..*len));
-            *len -= 1;
-        }};
-    }
-
-    let mut i = 19999;
-    let mut j = 9999;
-    loop {
-        i -= 1;
-
-        let b = *input.get_unchecked(i) - b'0';
-        pos += b as u16;
-
-        if j == 5700 {
-            break;
-        }
-
-        i -= 1;
-        j -= 1;
-
-        let b = *input.get_unchecked(i) - b'0';
-        pos += b as u16;
-    }
-    let posj_base = pos;
-    pos = 0;
-    loop {
-        i -= 1;
-        j -= 1;
-
-        let b = *input.get_unchecked(i) - b'0';
-        pos += b as u16;
-
-        *poss.get_mut(j).as_mut_ptr() = pos;
-
-        let len = queues_len.get_unchecked_mut(b as usize);
-        let queue = queues.get_mut(b as usize);
-        *queue.get_mut(*len).as_mut_ptr() = j as u16;
-        *len += 1;
-
-        i -= 1;
-
-        let b = *input.get_unchecked(i) - b'0';
-        pos += b as u16;
-
-        if i == 0 {
-            break;
-        }
-    }
-
-    queues_len[0] = 1;
-
     let mut tot = 0;
+    let mut left = 0;
+    let mut rights = [20000; 9];
+    let mut moved = [0u64; 19999usize.div_ceil(64)];
 
-    let mut max_b;
-
-    let mut i = 19998;
-    let mut posi = pos as usize + posj_base as usize;
-    let total_pos = pos as usize;
-    loop {
-        let b = *input.get_unchecked(i) - b'0';
-
-        posi -= b as usize;
-
-        let mut min_j = u16::MAX;
-        let mut min_h = 0;
-        for h in (1..10).rev() {
-            if h >= b {
-                let j = *queues
-                    .get(h as usize)
-                    .get(queues_len[h as usize] - 1)
-                    .as_ptr();
-                if j < min_j {
-                    min_j = j;
-                    min_h = h;
-                }
-            }
+    while left < rights[9 - 1] {
+        let b = *input.get_unchecked(left) as usize - b'0' as usize;
+        if moved.get_unchecked(left / 2 / 64) & (1 << (left / 2 % 64)) == 0 {
+            tot += (left / 2) * (b * (2 * pos + b - 1) / 2);
+            *moved.get_unchecked_mut(left / 2 / 64) |= 1 << (left / 2 % 64);
         }
+        pos += b;
 
-        let j = *queues.get(0).get(0).as_ptr();
-        if b == 1 && j < min_j && (j as usize) < i / 2 {
-            min_j = j;
+        left += 1;
 
-            bheap_pop!();
+        let mut hole_size = *input.get_unchecked(left) as usize - b'0' as usize;
+        while hole_size > 0 {
+            let mut search = *rights.get_unchecked(hole_size - 1);
 
-            let pos = total_pos - *poss.get(min_j as usize).as_ptr() as usize;
-            let len = b as usize;
-            tot += (i / 2) * (len * (2 * pos + len - 1) / 2);
-            *poss.get_mut(min_j as usize).as_mut_ptr() -= b as u16;
-        } else if (min_j as usize) < i / 2 {
-            queue_pop!(min_h);
-
-            if min_h != b {
-                if min_h - b == 1 {
-                    bheap_push!(min_j);
-                } else {
-                    queue_push!(min_h - b, min_j);
-                }
-            }
-
-            let pos = total_pos - *poss.get(min_j as usize).as_ptr() as usize;
-            let len = b as usize;
-            tot += (i / 2) * (len * (2 * pos + len - 1) / 2);
-            *poss.get_mut(min_j as usize).as_mut_ptr() -= b as u16;
-        } else {
-            let len = b as usize;
-            tot += (i / 2) * (len * (2 * posi + len - 1) / 2);
-
-            max_b = b;
-
-            i -= 2;
-            posi -= (*input.get_unchecked(i + 1) - b'0') as usize;
-            break;
-        }
-
-        i -= 2;
-        posi -= (*input.get_unchecked(i + 1) - b'0') as usize;
-    }
-
-    loop {
-        let b = *input.get_unchecked(i) - b'0';
-
-        posi -= b as usize;
-
-        if b < max_b {
-            let mut min_j = u16::MAX;
-            let mut min_h = 0;
-            for h in (1..10).rev() {
-                if h >= b {
-                    let j = *queues
-                        .get(h as usize)
-                        .get(queues_len[h as usize] - 1)
-                        .as_ptr();
-                    if j < min_j {
-                        min_j = j;
-                        min_h = h;
-                    }
-                }
-            }
-
-            let j = *queues.get(0).get(0).as_ptr();
-            if b == 1 && j < min_j && (j as usize) < i / 2 {
-                min_j = j;
-
-                bheap_pop!();
-
-                let pos = total_pos - *poss.get(min_j as usize).as_ptr() as usize;
-                let len = b as usize;
-                tot += (i / 2) * (len * (2 * pos + len - 1) / 2);
-                *poss.get_mut(min_j as usize).as_mut_ptr() -= b as u16;
-            } else if (min_j as usize) < i / 2 {
-                queue_pop!(min_h);
-
-                if min_h != b {
-                    if min_h - b == 1 {
-                        bheap_push!(min_j);
-                    } else {
-                        queue_push!(min_h - b, min_j);
-                    }
-                }
-
-                let pos = total_pos - *poss.get(min_j as usize).as_ptr() as usize;
-                let len = b as usize;
-                tot += (i / 2) * (len * (2 * pos + len - 1) / 2);
-                *poss.get_mut(min_j as usize).as_mut_ptr() -= b as u16;
-            } else {
-                let len = b as usize;
-                tot += (i / 2) * (len * (2 * posi + len - 1) / 2);
-                max_b = b;
-
-                if b == 1 {
-                    while i != 0 {
-                        i -= 2;
-                        posi -= (*input.get_unchecked(i + 1) - b'0') as usize;
-                        let b = *input.get_unchecked(i) - b'0';
-                        posi -= b as usize;
-                        let len = b as usize;
-                        tot += (i / 2) * (len * (2 * posi + len - 1) / 2);
-                    }
-                    break;
-                }
-            }
-        } else {
-            let len = b as usize;
-            tot += (i / 2) * (len * (2 * posi + len - 1) / 2);
-        }
-
-        i -= 2;
-        posi -= (*input.get_unchecked(i + 1) - b'0') as usize;
-    }
-
-    tot as u64
-}
-
-trait MUHelper<T> {
-    unsafe fn get(&self, i: usize) -> &MaybeUninit<T>;
-    unsafe fn get_mut(&mut self, i: usize) -> &mut MaybeUninit<T>;
-}
-impl<T, const N: usize> MUHelper<T> for MaybeUninit<[T; N]> {
-    unsafe fn get(&self, i: usize) -> &MaybeUninit<T> {
-        &*self.as_ptr().as_slice().get_unchecked(i).cast()
-    }
-
-    unsafe fn get_mut(&mut self, i: usize) -> &mut MaybeUninit<T> {
-        &mut *self.as_mut_ptr().as_mut_slice().get_unchecked_mut(i).cast()
-    }
-}
-
-mod bheap {
-    #[inline(always)]
-    pub unsafe fn pop<T: Copy + Ord>(heap: &mut [T]) {
-        if heap.len() > 1 {
-            // len = len - 1
-            //
-            // sift_down_to_bottom(0)
-
-            let start = 0;
-            let end = heap.len() - 1;
-
-            let hole = *heap.get_unchecked(heap.len() - 1);
-            let mut hole_pos = start;
-            let mut child = 2 * hole_pos + 1;
-
-            while child <= end.saturating_sub(2) {
-                child += (*heap.get_unchecked(child) >= *heap.get_unchecked(child + 1)) as usize;
-
-                *heap.get_unchecked_mut(hole_pos) = *heap.get_unchecked(child);
-                hole_pos = child;
-
-                child = 2 * hole_pos + 1;
-            }
-
-            if child == end - 1 {
-                *heap.get_unchecked_mut(hole_pos) = *heap.get_unchecked(child);
-                hole_pos = child;
-            }
-
-            // sift_up(start, hole_pos)
-            while hole_pos > start {
-                let parent = (hole_pos - 1) / 2;
-
-                if hole >= *heap.get_unchecked(parent) {
-                    break;
-                }
-
-                *heap.get_unchecked_mut(hole_pos) = *heap.get_unchecked(parent);
-                hole_pos = parent;
-            }
-
-            *heap.get_unchecked_mut(hole_pos) = hole;
-        }
-    }
-
-    #[inline(always)]
-    pub unsafe fn push<T: Copy + Ord>(heap: &mut [T]) {
-        // sift_up(0, heap.len() - 1)
-        let start = 0;
-        let pos = heap.len() - 1;
-
-        let hole = *heap.get_unchecked(pos);
-        let mut hole_pos = pos;
-
-        while hole_pos > start {
-            let parent = (hole_pos - 1) / 2;
-
-            if hole >= *heap.get_unchecked(parent) {
+            if search - 2 < left {
                 break;
             }
 
-            *heap.get_unchecked_mut(hole_pos) = *heap.get_unchecked(parent);
-            hole_pos = parent;
+            let limit = i8x16::splat(b'0' as i8 + hole_size as i8);
+            loop {
+                search -= 32;
+
+                let block = u8x32::from_slice(input.get_unchecked(search..search + 32));
+                let (block, _) = block.deinterleave(block);
+                let block = block.resize::<16>(16);
+                let mask = block.cast::<i8>().simd_le(limit).to_bitmask();
+
+                let base = (search / 2) >> 3;
+                let moved = moved.as_ptr().byte_add(base).read_unaligned() >> ((search / 2) & 7);
+
+                let mask = mask & !moved;
+                if mask != 0 {
+                    let j = (mask as u16).leading_zeros();
+                    search = search + 30 - 2 * j as usize;
+                    break;
+                }
+
+                if search < left {
+                    break;
+                }
+            }
+
+            for i in 1..hole_size + 1 {
+                let right = rights.get_unchecked_mut(i - 1);
+                *right = (*right).min(search);
+            }
+
+            if search < left {
+                break;
+            }
+
+            *moved.get_unchecked_mut(search / 2 / 64) |= 1 << (search / 2 % 64);
+
+            let b = *input.get_unchecked(search) as usize - b'0' as usize;
+            tot += (search / 2) * (b * (2 * pos + b - 1) / 2);
+            pos += b;
+            hole_size -= b;
         }
 
-        *heap.get_unchecked_mut(hole_pos) = hole;
+        pos += hole_size;
+        left += 1;
     }
+
+    tot as u64
 }
