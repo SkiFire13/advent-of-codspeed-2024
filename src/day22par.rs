@@ -135,10 +135,11 @@ unsafe fn inner_part2(input: &str) -> u64 {
         nums_len += 1;
     };
 
-    const NUM_SEQUENCES: usize = 40951usize.next_multiple_of(32);
+    const NUM_SEQUENCES: usize = 40951usize.next_multiple_of(16);
     const NUM_COUNTS: usize = NUM_SEQUENCES * par::NUM_THREADS;
     static mut COUNTS: [u8; NUM_COUNTS] = [0; NUM_COUNTS];
     COUNTS.fill(0);
+    static mut COUNTS_SCRATCH: [u16; NUM_COUNTS / 2] = [0; NUM_COUNTS / 2];
 
     let nums = nums.get_unchecked_mut(..nums_len);
 
@@ -185,21 +186,58 @@ unsafe fn inner_part2(input: &str) -> u64 {
                 handle!(0);
             }
         }
+
+        if idx & 1 != 0 {
+            return;
+        }
+
+        par::wait(idx | 1);
+
+        let counts2 = &mut *(&raw mut COUNTS).cast::<[u8; NUM_SEQUENCES]>().add(idx | 1);
+        let scratch = &mut *(&raw mut COUNTS_SCRATCH)
+            .cast::<[u16; NUM_SEQUENCES]>()
+            .add(idx / 2);
+        for i in 0..NUM_SEQUENCES / 16 {
+            let b1 = u8x16::from_slice(counts.get_unchecked(16 * i..16 * i + 16));
+            let b2 = u8x16::from_slice(counts2.get_unchecked(16 * i..16 * i + 16));
+            let sum = b1.cast::<u16>() + b2.cast::<u16>();
+            sum.copy_to_slice(scratch.get_unchecked_mut(16 * i..16 * i + 16));
+        }
+
+        const BITS: u32 = par::NUM_THREADS.ilog2();
+        const { assert!(1 << BITS == par::NUM_THREADS) };
+        for i in 1..BITS - 1 {
+            if idx & (1 << i) != 0 {
+                break;
+            }
+
+            par::wait(idx | (1 << i));
+
+            let scratch2 = &mut *(&raw mut COUNTS_SCRATCH)
+                .cast::<[u16; NUM_SEQUENCES]>()
+                .add((idx | (1 << i)) / 2);
+
+            for i in 0..NUM_SEQUENCES / 16 {
+                let b1 = u16x16::from_slice(scratch.get_unchecked(16 * i..16 * i + 16));
+                let b2 = u16x16::from_slice(scratch2.get_unchecked(16 * i..16 * i + 16));
+                let sum = b1 + b2;
+                sum.copy_to_slice(scratch.get_unchecked_mut(16 * i..16 * i + 16));
+            }
+        }
     });
 
     let mut max = u16x16::splat(0);
 
-    for i in 0..NUM_SEQUENCES.div_ceil(16) {
-        let mut sum = u16x16::splat(0);
-        for j in 0..par::NUM_THREADS {
-            let b = u8x16::from_slice(
-                COUNTS
-                    .get_unchecked(NUM_SEQUENCES * j + 16 * i..)
-                    .get_unchecked(..16),
-            );
-            sum += b.cast::<u16>();
-        }
-        max = max.simd_max(sum);
+    let scratch1 = &mut *(&raw mut COUNTS_SCRATCH)
+        .cast::<[u16; NUM_SEQUENCES]>()
+        .add(0);
+    let scratch2 = &mut *(&raw mut COUNTS_SCRATCH)
+        .cast::<[u16; NUM_SEQUENCES]>()
+        .add(par::NUM_THREADS / 4);
+    for i in 0..NUM_SEQUENCES / 16 {
+        let b1 = u16x16::from_slice(scratch1.get_unchecked(16 * i..16 * i + 16));
+        let b2 = u16x16::from_slice(scratch2.get_unchecked(16 * i..16 * i + 16));
+        max = max.simd_max(b1 + b2);
     }
 
     max.reduce_max() as u64
@@ -235,15 +273,20 @@ mod par {
     }
 
     #[inline(always)]
-    fn wait() {
-        for i in 1..NUM_THREADS {
-            loop {
-                let ptr = WORK[i].0.load(Ordering::Acquire);
-                if ptr.is_null() {
-                    break;
-                }
-                std::hint::spin_loop();
+    pub fn wait(i: usize) {
+        loop {
+            let ptr = WORK[i].0.load(Ordering::Acquire);
+            if ptr.is_null() {
+                break;
             }
+            std::hint::spin_loop();
+        }
+    }
+
+    #[inline(always)]
+    fn wait_all() {
+        for i in 1..NUM_THREADS {
+            wait(i);
         }
     }
 
@@ -265,6 +308,6 @@ mod par {
     pub unsafe fn par<F: Fn(usize)>(f: F) {
         submit(&f);
         f(0);
-        wait();
+        wait_all();
     }
 }
