@@ -95,10 +95,12 @@ unsafe fn inner_part2(input: &str) -> u64 {
     #[repr(C, align(32))]
     struct Aligned<T>(T);
 
-    let mut robots_x = Aligned([MaybeUninit::<Ty>::uninit(); 128]);
-    let mut robots_y = Aligned([MaybeUninit::<Ty>::uninit(); 128]);
-    let mut robots_vx = Aligned([MaybeUninit::<Ty>::uninit(); 128]);
-    let mut robots_vy = Aligned([MaybeUninit::<Ty>::uninit(); 128]);
+    const SAMPLE_SIZE: usize = 64 + 16;
+
+    let mut robots_x = Aligned([MaybeUninit::<Ty>::uninit(); SAMPLE_SIZE]);
+    let mut robots_y = Aligned([MaybeUninit::<Ty>::uninit(); SAMPLE_SIZE]);
+    let mut robots_vx = Aligned([MaybeUninit::<Ty>::uninit(); SAMPLE_SIZE]);
+    let mut robots_vy = Aligned([MaybeUninit::<Ty>::uninit(); SAMPLE_SIZE]);
     let mut offset = 0;
 
     let mut ptr = input.as_ptr().wrapping_sub(1);
@@ -122,7 +124,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
 
         offset += 1;
 
-        if offset == 128 {
+        if offset == SAMPLE_SIZE {
             break;
         }
     }
@@ -136,7 +138,7 @@ unsafe fn inner_part2(input: &str) -> u64 {
                 let mut sum = u16x16::splat(0);
                 let mut sum2 = u32x16::splat(0);
 
-                for offset in 0..128 / 16 {
+                for offset in 0..SAMPLE_SIZE / 16 {
                     let p = *$p.0.as_mut_ptr().cast::<u16x16>().add(offset);
                     let v = *$v.0.as_ptr().cast::<u16x16>().add(offset);
 
@@ -152,9 +154,9 @@ unsafe fn inner_part2(input: &str) -> u64 {
                 let sum = sum.reduce_sum() as u64;
                 let sum2 = sum2.reduce_sum() as u64;
 
-                let var = sum2 - (sum * sum / 128);
+                let var = sum2 - (sum * sum / SAMPLE_SIZE as u64);
 
-                if var < 540 * 128 {
+                if var < 540 * SAMPLE_SIZE as u64 {
                     break i;
                 }
             }
