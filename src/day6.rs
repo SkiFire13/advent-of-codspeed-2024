@@ -25,49 +25,86 @@ unsafe fn inner_part1(input: &str) -> u32 {
 
     let mut offset = 0;
     let start = loop {
-        let block = u8x32::from_slice(input.get_unchecked(offset..offset + 32));
-        if let Some(start_pos) = block.simd_eq(u8x32::splat(b'^')).first_set() {
+        let block = u8x64::from_slice(input.get_unchecked(offset..offset + 64));
+        if let Some(start_pos) = block.simd_eq(u8x64::splat(b'^')).first_set() {
             break offset + start_pos;
         }
-        offset += 32;
+        offset += 64;
     };
 
-    let mut seen = [0u64; (130 * 131 + 63) / 64];
-    let mut seen_count = 0;
-    let mut pos = start;
-    seen[pos / 64] |= 1 << (pos % 64);
-    seen_count += 1;
+    let mut to_see = [1u8; 130 * 131];
+    let mut count = 0;
+    let pos = start;
 
-    macro_rules! move_and_check {
-        ($next:ident: d[$d:expr] check[$check:expr]) => {
-            loop {
-                let $next = pos.wrapping_add($d);
-                if $check {
-                    return seen_count;
-                }
+    core::arch::asm!(
+    "2:",
+        "mov   {tmp:l}, byte ptr [{to_see} + {pos}]",
+        "mov   byte ptr[{to_see} + {pos}], 0",
+        "add   {count:e}, {tmp:e}",
+        "add   {pos}, -131",
+        "cmp   {pos}, {max}",
+        "jae   9f",
+        "cmp   byte ptr [{input} + {pos}], {hash}",
+        "jne   2b",
 
-                if *input.get_unchecked($next) == b'#' {
-                    break;
-                }
+        "add   {pos}, 131",
+    "3:",
+        "mov   {tmp:l}, byte ptr [{to_see} + {pos}]",
+        "mov   byte ptr [{to_see} + {pos}], 0",
+        "add   {count:e}, {tmp:e}",
+        "add   {pos}, 1",
+        "cmp   byte ptr [{input} + {pos}], {dot}",
+        "je    3b",
+        "cmp   byte ptr [{input} + {pos}], {newl}",
+        "je    9f",
+        "cmp   byte ptr [{input} + {pos}], {hash}",
+        "jne   3b",
 
-                pos = $next;
+        "add   {pos}, -1",
+    "4:",
+        "mov   {tmp:l}, byte ptr [{to_see} + {pos}]",
+        "mov   byte ptr [{to_see} + {pos}], 0",
+        "add   {count:e}, {tmp:e}",
+        "add   {pos}, 131",
+        "cmp   {pos}, {max}",
+        "jae   9f",
+        "cmp   byte ptr [{input} + {pos}], {hash}",
+        "jne   4b",
 
-                let seen_elem = seen.get_unchecked_mut(pos / 64);
-                let seen_mask = 1 << (pos % 64);
-                if *seen_elem & seen_mask == 0 {
-                    *seen_elem |= seen_mask;
-                    seen_count += 1;
-                }
-            }
-        };
-    }
+        "add   {pos}, -131",
+    "5:",
+        "mov   {tmp:l}, byte ptr [{to_see} + {pos}]",
+        "mov   byte ptr [{to_see} + {pos}], 0",
+        "add   {count:e}, {tmp:e}",
+        "add   {pos}, -1",
+        "cmp   byte ptr [{input} + {pos}], {dot}",
+        "je    5b",
+        "cmp   byte ptr [{input} + {pos}], {newl}",
+        "je    9f",
+        "cmp   byte ptr [{input} + {pos}], {hash}",
+        "jne   5b",
 
-    loop {
-        move_and_check!(next: d[-131isize as usize] check[next >= 131 * 130]);
-        move_and_check!(next: d[1 as usize]         check[next % 131 == 130]);
-        move_and_check!(next: d[131isize as usize]  check[next >= 131 * 130]);
-        move_and_check!(next: d[-1isize as usize]   check[next % 131 == 130]);
-    }
+        "add   {pos}, 1",
+        "jmp   2b",
+
+    "9:",
+
+        input = in(reg) input.as_ptr(),
+        to_see = in(reg) to_see.as_mut_ptr(),
+        pos = inout(reg) pos => _,
+        count = inout(reg) count,
+
+        tmp = inout(reg) 0 => _,
+
+        max = const 131 * 130,
+        hash = const b'#',
+        dot = const b'.',
+        newl = const b'\n',
+
+        options(nostack),
+    );
+
+    count
 }
 
 #[allow(unused)]
